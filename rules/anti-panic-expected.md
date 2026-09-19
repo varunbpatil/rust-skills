@@ -41,6 +41,8 @@ fn process_age(age: i32) {
 ## Good
 
 ```rust
+use anyhow::Context as _;
+
 // Return errors for expected failures
 fn fetch_data(url: &str) -> Result<Data, FetchError> {
     let response = reqwest::blocking::get(url)
@@ -79,7 +81,7 @@ Panic IS appropriate for:
 // Bug detection - invariant violated
 fn get_unchecked(&self, index: usize) -> &T {
     assert!(index < self.len(), "index out of bounds - this is a bug");
-    unsafe { self.data.get_unchecked(index) }
+    &self.data[index]
 }
 
 // Unrecoverable state
@@ -98,15 +100,15 @@ fn test_fails() {
 
 ## Decision Guide
 
-| Condition | Action |
-|-----------|--------|
-| Invalid user input | Return `Err` |
-| Network failure | Return `Err` |
-| File not found | Return `Err` |
-| Malformed data | Return `Err` |
-| Bug/impossible state | `panic!` or `unreachable!` |
-| Failed assertion in test | `panic!` |
-| Unrecoverable init failure | `panic!` |
+| Condition                  | Action                     |
+| -------------------------- | -------------------------- |
+| Invalid user input         | Return `Err`               |
+| Network failure            | Return `Err`               |
+| File not found             | Return `Err`               |
+| Malformed data             | Return `Err`               |
+| Bug/impossible state       | `panic!` or `unreachable!` |
+| Failed assertion in test   | `panic!`                   |
+| Unrecoverable init failure | `panic!`                   |
 
 ## Anti-pattern: panic! for Control Flow
 

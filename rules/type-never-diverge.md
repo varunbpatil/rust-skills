@@ -68,7 +68,7 @@ fn must_get_config() -> Config {
 
 ## Standard Library Examples
 
-```rust
+```rust,ignore
 // std::process::exit
 pub fn exit(code: i32) -> !
 
@@ -97,7 +97,7 @@ fn get_status(state: &State) -> &str {
     match state {
         State::Running => "running",
         State::Stopped => "stopped",
-        State::Error => unreachable!(),  // ! coerces to &str
+        State::Error => "error",
     }
 }
 
@@ -130,7 +130,7 @@ std::thread::spawn(|| -> ! {
 
 `fn f() -> !` (never type as a return type) has been **stable since Rust 1.41** — no feature gate needed.
 
-Using `!` as an *arbitrary type argument* (e.g. `Result<(), !>`) still requires the nightly feature gate:
+Using `!` as an _arbitrary type argument_ (e.g. `Result<(), !>`) still requires the nightly feature gate:
 
 ```rust
 // Nightly only — using ! as a type argument

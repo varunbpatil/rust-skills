@@ -87,13 +87,17 @@ impl Status {
 
 ## Asserting a Match in Tests
 
-For tests, `assert_matches!` (and `debug_assert_matches!`) — stabilized in Rust 1.96 — checks a value against a pattern and panics with the value's `Debug` output on failure, which is more informative than `assert!(matches!(...))`. They are not in the prelude, so import them:
+For tests, `assert_matches!` and `debug_assert_matches!` were stabilized in
+Rust 1.96. They print the unexpected value through `Debug` on failure, which is
+usually more informative than `assert!(matches!(...))`. The macros are exported
+at the `std` crate root and are not in the prelude:
 
 ```rust
-use std::assert_matches::assert_matches;
+use std::{assert_matches, debug_assert_matches};
 
-let result = parse("42");
+let result: Result<i32, &str> = Ok(42);
 assert_matches!(result, Ok(n) if n == 42);
+debug_assert_matches!(result, Ok(_));
 ```
 
 ## Notes

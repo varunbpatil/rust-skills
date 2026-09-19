@@ -6,7 +6,19 @@
 
 The `clippy::style` lint group enforces idiomatic Rust patterns. While not bugs, style violations make code harder to read and maintain. Consistent style helps teams work together and makes code easier to review.
 
-## Configuration
+## Bad
+
+Ad hoc style enforcement produces inconsistent review feedback and recurring
+cleanup discussions.
+
+```toml
+[lints.clippy]
+style = "allow"
+```
+
+## Good
+
+### Configuration
 
 ```rust
 // In lib.rs or main.rs
@@ -24,7 +36,7 @@ style = "warn"
 
 ### Redundant Code
 
-```rust
+```rust,ignore
 // WARN: Redundant clone on Copy type
 let x = 5;
 let y = x.clone();  // Just use: let y = x;
@@ -80,20 +92,20 @@ impl Foo {
 
 ## Notable Lints in This Group
 
-| Lint | Better Pattern |
-|------|---------------|
-| `len_zero` | Use `is_empty()` instead of `len() == 0` |
-| `redundant_field_names` | Use shorthand `{ x }` not `{ x: x }` |
-| `unused_unit` | Remove `-> ()` and trailing `()` |
-| `collapsible_if` | Combine nested ifs with `&&` |
-| `single_match` | Use `if let` instead |
-| `match_like_matches_macro` | Use `matches!()` macro |
-| `needless_return` | Remove explicit `return` at end |
-| `question_mark` | Use `?` instead of `match` |
+| Lint                       | Better Pattern                           |
+| -------------------------- | ---------------------------------------- |
+| `len_zero`                 | Use `is_empty()` instead of `len() == 0` |
+| `redundant_field_names`    | Use shorthand `{ x }` not `{ x: x }`     |
+| `unused_unit`              | Remove `-> ()` and trailing `()`         |
+| `collapsible_if`           | Combine nested ifs with `&&`             |
+| `single_match`             | Use `if let` instead                     |
+| `match_like_matches_macro` | Use `matches!()` macro                   |
+| `needless_return`          | Remove explicit `return` at end          |
+| `question_mark`            | Use `?` instead of `match`               |
 
 ## Examples
 
-```rust
+```rust,ignore
 // Before (style warnings)
 fn process(data: Vec<i32>) -> Option<i32> {
     if data.len() == 0 {

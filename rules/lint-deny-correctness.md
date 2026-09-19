@@ -4,11 +4,26 @@
 
 ## Why It Matters
 
-Clippy's correctness lints catch code that is outright wrong - logic errors, undefined behavior, or code that doesn't do what you think. These should always be errors, not warnings.
+Clippy's correctness lints target code that is almost certainly wrong: logic
+errors, undefined behavior, or code that does not do what it appears to do.
+Treat them as errors in maintained code, while reviewing any tool exception
+explicitly.
 
-## Setup
+## Bad
 
-```rust
+Relying on compiler errors alone misses suspicious but type-correct constructs
+that Clippy's correctness group recognizes.
+
+```toml
+[lints.clippy]
+correctness = "allow"
+```
+
+## Good
+
+### Setup
+
+```rust,ignore
 // At the top of lib.rs or main.rs
 #![deny(clippy::correctness)]
 
@@ -49,7 +64,7 @@ if x >= 0 && x < 0 {  // ERROR: impossible condition
 
 ## Important Correctness Lints
 
-```rust
+```rust,ignore
 // approx_constant - using imprecise PI, E values
 let pi = 3.14;  // Use std::f64::consts::PI
 

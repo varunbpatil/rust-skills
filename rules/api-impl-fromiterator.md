@@ -1,10 +1,15 @@
 # api-impl-fromiterator
 
-> Implement `FromIterator` and `Extend` for collection types, and `IntoIterator` for all three reference forms
+> Give collection-like types the iterator traits their semantics support
 
 ## Why It Matters
 
-The Rust API Guidelines (C-COLLECT) require that collection types implement `FromIterator<T>` so that `iter.collect::<MyCollection<T>>()` works. Pairing it with `Extend<T>` enables efficient batch insertion — the standard library uses `Extend` internally in `collect` when extending an existing collection. Implementing `IntoIterator` for the type itself, for `&Type`, and for `&mut Type` rounds out the contract and lets the collection participate in `for` loops and iterator adapter chains. Skipping these traits forces callers into awkward manual loops and breaks generic code.
+For a type whose primary abstraction is a collection, `FromIterator<T>` and
+`Extend<T>` integrate construction and batch insertion with generic iterator
+code. Implement `IntoIterator` for owned, shared, and mutable references when
+each traversal has a natural meaning. This is conditional API guidance, not a
+fixed trait checklist for every wrapper: omit a form that would violate
+invariants, expose the wrong abstraction, or has no sensible item type.
 
 ## Bad
 
@@ -113,6 +118,6 @@ fn main() {
 
 ## See Also
 
-- [name-iter-convention](name-iter-convention.md) - `iter`/`iter_mut`/`into_iter` method naming
+- [name-iter-method](name-iter-method.md) - `iter`/`iter_mut`/`into_iter` method naming
 - [perf-collect-once](perf-collect-once.md) - avoid collecting intermediate iterators
 - [api-common-traits](api-common-traits.md) - implement `Debug`, `Clone`, `PartialEq` eagerly

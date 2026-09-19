@@ -64,23 +64,25 @@ struct MemoryStorage { data: HashMap<String, Vec<u8>> }
 
 ## Signs of Over-Abstraction
 
-| Sign | Symptom |
-|------|---------|
-| Single implementation | Generic trait with only one impl |
-| Type parameter soup | `T, U, V, W` everywhere |
-| Marker traits | Traits with no methods |
-| Deep trait bounds | `where T: A + B + C + D + E` |
-| Phantom generics | Type parameters not used meaningfully |
+| Sign                  | Symptom                               |
+| --------------------- | ------------------------------------- |
+| Single implementation | Generic trait with only one impl      |
+| Type parameter soup   | `T, U, V, W` everywhere               |
+| Marker traits         | Traits with no methods                |
+| Deep trait bounds     | `where T: A + B + C + D + E`          |
+| Phantom generics      | Type parameters not used meaningfully |
 
 ## When to Generalize
 
 Generalize when:
+
 - You have 2+ concrete types that share behavior
 - You're writing library code for public consumption
 - Performance requires static dispatch
 - The abstraction simplifies the API
 
 Don't generalize when:
+
 - You "might need it later" (YAGNI)
 - Only one type will ever implement it
 - It makes code harder to understand
@@ -89,7 +91,7 @@ Don't generalize when:
 
 Wait until you have three similar concrete implementations before abstracting:
 
-```rust
+```rust,ignore
 // Version 1: Just FileStorage
 struct FileStorage { /* ... */ }
 
@@ -106,8 +108,8 @@ trait Storage {
 ## Prefer Concrete Types in Private Code
 
 ```rust
-// Internal function - concrete type is fine
-fn process_orders(db: &PostgresDb, orders: Vec<Order>) { }
+// Adapter-local helper - a concrete database type is fine
+fn execute_order_insert(db: &PostgresDb, orders: &[Order]) { }
 
 // Public API - might benefit from abstraction
 pub fn process_orders<S: Storage>(storage: &S, orders: Vec<Order>) { }
@@ -118,3 +120,4 @@ pub fn process_orders<S: Storage>(storage: &S, orders: Vec<Order>) { }
 - [type-generic-bounds](./type-generic-bounds.md) - Minimal bounds
 - [api-sealed-trait](./api-sealed-trait.md) - Controlled extension
 - [anti-type-erasure](./anti-type-erasure.md) - When Box<dyn> is wrong
+- [proj-ports-adapters](./proj-ports-adapters.md) - business services depend on ports, not vendor clients

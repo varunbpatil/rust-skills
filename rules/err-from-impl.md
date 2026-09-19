@@ -6,26 +6,28 @@
 
 The `?` operator automatically converts errors using `From` trait. By implementing `From<SourceError> for YourError`, you enable seamless error propagation without explicit `.map_err()` calls. This makes error handling code cleaner and ensures consistent error wrapping throughout your codebase.
 
+Use direct `From<vendor::Error>` conversions only in code that owns the vendor dependency, such as an adapter or startup/configuration layer. Do not let that conversion make a driver error part of an outbound-port or use-case error contract; map it to an application-owned port-specific error at the adapter boundary instead.
+
 ## Bad
 
 ```rust
 #[derive(Debug)]
-enum AppError {
+enum AdapterError {
     Io(std::io::Error),
     Parse(serde_json::Error),
     Database(diesel::result::Error),
 }
 
-fn load_config(path: &str) -> Result<Config, AppError> {
+fn load_config(path: &str) -> Result<Config, AdapterError> {
     let content = std::fs::read_to_string(path)
-        .map_err(|e| AppError::Io(e))?;  // Manual conversion everywhere
-    
+        .map_err(|e| AdapterError::Io(e))?;  // Manual conversion everywhere
+
     let config: Config = serde_json::from_str(&content)
-        .map_err(|e| AppError::Parse(e))?;  // Repeated boilerplate
-    
+        .map_err(|e| AdapterError::Parse(e))?;  // Repeated boilerplate
+
     save_to_db(&config)
-        .map_err(|e| AppError::Database(e))?;  // Gets tedious
-    
+        .map_err(|e| AdapterError::Database(e))?;  // Gets tedious
+
     Ok(config)
 }
 ```
@@ -34,32 +36,32 @@ fn load_config(path: &str) -> Result<Config, AppError> {
 
 ```rust
 #[derive(Debug)]
-enum AppError {
+enum AdapterError {
     Io(std::io::Error),
     Parse(serde_json::Error),
     Database(diesel::result::Error),
 }
 
 // Implement From for each source error type
-impl From<std::io::Error> for AppError {
+impl From<std::io::Error> for AdapterError {
     fn from(err: std::io::Error) -> Self {
-        AppError::Io(err)
+        AdapterError::Io(err)
     }
 }
 
-impl From<serde_json::Error> for AppError {
+impl From<serde_json::Error> for AdapterError {
     fn from(err: serde_json::Error) -> Self {
-        AppError::Parse(err)
+        AdapterError::Parse(err)
     }
 }
 
-impl From<diesel::result::Error> for AppError {
+impl From<diesel::result::Error> for AdapterError {
     fn from(err: diesel::result::Error) -> Self {
-        AppError::Database(err)
+        AdapterError::Database(err)
     }
 }
 
-fn load_config(path: &str) -> Result<Config, AppError> {
+fn load_config(path: &str) -> Result<Config, AdapterError> {
     let content = std::fs::read_to_string(path)?;  // Auto-converts
     let config: Config = serde_json::from_str(&content)?;  // Clean!
     save_to_db(&config)?;
@@ -73,19 +75,19 @@ fn load_config(path: &str) -> Result<Config, AppError> {
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-enum AppError {
+enum AdapterError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),  // Auto-generates From impl
-    
+
     #[error("Parse error: {0}")]
     Parse(#[from] serde_json::Error),  // #[from] does the work
-    
+
     #[error("Database error: {0}")]
     Database(#[from] diesel::result::Error),
 }
 
 // Now ? just works
-fn load_config(path: &str) -> Result<Config, AppError> {
+fn load_config(path: &str) -> Result<Config, AdapterError> {
     let content = std::fs::read_to_string(path)?;
     let config: Config = serde_json::from_str(&content)?;
     save_to_db(&config)?;
@@ -97,7 +99,7 @@ fn load_config(path: &str) -> Result<Config, AppError> {
 
 Sometimes you need to add context during conversion:
 
-```rust
+```rust,ignore
 #[derive(Error, Debug)]
 enum ConfigError {
     #[error("Failed to read config from '{path}': {source}")]
@@ -132,17 +134,17 @@ fn load_config(path: &str) -> Result<Config> {
 
 Be careful with blanket implementations:
 
-```rust
+```rust,ignore
 // ❌ Too broad - conflicts with other From impls
-impl<E: std::error::Error> From<E> for AppError {
+impl<E: std::error::Error> From<E> for AdapterError {
     fn from(err: E) -> Self {
-        AppError::Other(err.to_string())
+        AdapterError::Other(err.to_string())
     }
 }
 
 // ✅ Specific implementations
-impl From<std::io::Error> for AppError { ... }
-impl From<ParseIntError> for AppError { ... }
+impl From<std::io::Error> for AdapterError { ... }
+impl From<ParseIntError> for AdapterError { ... }
 ```
 
 ## See Also
@@ -151,3 +153,4 @@ impl From<ParseIntError> for AppError { ... }
 - [err-source-chain](./err-source-chain.md) - Preserving error chains
 - [err-question-mark](./err-question-mark.md) - The ? operator
 - [conv-tryfrom-fallible](./conv-tryfrom-fallible.md) - TryFrom for fallible conversions
+- [proj-ports-adapters](./proj-ports-adapters.md) - translate vendor errors at adapter boundaries

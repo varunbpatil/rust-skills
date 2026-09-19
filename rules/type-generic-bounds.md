@@ -29,6 +29,8 @@ where
 ## Good
 
 ```rust
+use std::{error::Error, fmt::{self, Debug, Formatter}};
+
 // No bounds on struct - store anything
 struct Container<T> {
     items: Vec<T>,
@@ -57,7 +59,7 @@ where
 
 ## Bound Placement
 
-```rust
+```rust,ignore
 // On struct: affects all uses of the type
 struct MustBeClone<T: Clone> { data: T }  // Rarely needed
 
@@ -72,7 +74,7 @@ fn requires_send<T: Send>(value: T) { ... }
 
 ## Where Clause Benefits
 
-```rust
+```rust,ignore
 // Inline: hard to read
 fn complex<T: Clone + Debug + Send, U: AsRef<str> + Into<String>>(t: T, u: U) { }
 
@@ -94,7 +96,7 @@ where
 
 ## Implied Bounds
 
-```rust
+```rust,ignore
 // Supertrait bounds are implied
 trait Foo: Clone + Debug {}
 
@@ -114,7 +116,7 @@ where
 
 ## Conditional Trait Implementation
 
-```rust
+```rust,ignore
 struct Wrapper<T>(T);
 
 // Implement Clone only when T: Clone
@@ -124,7 +126,7 @@ impl<T: Clone> Clone for Wrapper<T> {
     }
 }
 
-// Implement Debug only when T: Debug  
+// Implement Debug only when T: Debug
 impl<T: Debug> Debug for Wrapper<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Wrapper").field(&self.0).finish()

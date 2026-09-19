@@ -1,23 +1,29 @@
 # async-tokio-fs
 
-> Use `tokio::fs` instead of `std::fs` in async code
+> Keep potentially slow filesystem operations off async executor threads
 
 ## Why It Matters
 
-`std::fs` operations are blocking—they stop the current thread until the syscall completes. In async code, this blocks the executor thread, preventing it from running other tasks. `tokio::fs` wraps filesystem operations in `spawn_blocking`, keeping the executor responsive.
+`std::fs` operations are blocking—they stop the current thread until the syscall
+completes. In latency-sensitive async code, use `tokio::fs` or an explicitly
+managed blocking pool to keep executor workers responsive. Tokio filesystem
+operations are not kernel-level asynchronous on the common platforms: they use
+blocking threads, so concurrency still needs a bound. Synchronous access can be
+reasonable during startup or when measurement establishes that the operation is
+short and infrequent.
 
 ## Bad
 
 ```rust
 async fn process_files(paths: &[PathBuf]) -> Result<Vec<String>> {
     let mut contents = Vec::new();
-    
+
     for path in paths {
         // BLOCKS the entire executor thread!
         let data = std::fs::read_to_string(path)?;
         contents.push(data);
     }
-    
+
     Ok(contents)
 }
 
@@ -26,28 +32,30 @@ async fn process_files(paths: &[PathBuf]) -> Result<Vec<String>> {
 
 ## Good
 
-```rust
+```rust,ignore
 use tokio::fs;
 
 async fn process_files(paths: &[PathBuf]) -> Result<Vec<String>> {
     let mut contents = Vec::new();
-    
+
     for path in paths {
         // Non-blocking: allows other tasks to run
         let data = fs::read_to_string(path).await?;
         contents.push(data);
     }
-    
+
     Ok(contents)
 }
 
-// Even better: concurrent reads
+// For independent reads, use bounded concurrency rather than spawning one
+// blocking operation for every untrusted path at once.
 async fn process_files_concurrent(paths: &[PathBuf]) -> Result<Vec<String>> {
-    let futures: Vec<_> = paths.iter()
+    use futures::{stream, StreamExt, TryStreamExt};
+
+    stream::iter(paths)
         .map(|path| fs::read_to_string(path))
-        .collect();
-    
-    futures::future::try_join_all(futures).await
+        .buffered(16)
+        .try_collect()
 }
 ```
 
@@ -120,21 +128,22 @@ while let Some(line) = lines.next_line().await? {
 
 ## When std::fs is Acceptable
 
-```rust
+```rust,ignore
 // Startup/initialization (before async runtime)
 fn main() {
     let config = std::fs::read_to_string("config.toml")
         .expect("config file required");
-    
+
     tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(run_with_config(config));
 }
 
-// Single-threaded current_thread runtime (less impact)
+// Do not block a current-thread runtime: it prevents every other task there
+// from making progress.
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // Still prefer tokio::fs, but impact is lower
+    // Use tokio::fs or move synchronous work off this executor thread.
 }
 
 // When file operations are rare and quick
@@ -147,14 +156,16 @@ async fn main() {
 // tokio::fs uses spawn_blocking internally
 // For many small files, the overhead adds up
 
-// Batch operations when possible
+// Bound concurrent operations; batching alone does not bound try_join_all.
 let paths: Vec<_> = entries.iter()
     .map(|e| e.path())
     .collect();
 
-let contents = futures::future::try_join_all(
-    paths.iter().map(|p| fs::read_to_string(p))
-).await?;
+let contents: Vec<_> = futures::stream::iter(paths)
+    .map(|p| fs::read_to_string(p))
+    .buffered(16)
+    .try_collect()
+    .await?;
 
 // For heavy I/O, consider memory-mapped files
 // (requires unsafe or mmap crate)
@@ -165,3 +176,4 @@ let contents = futures::future::try_join_all(
 - [async-spawn-blocking](./async-spawn-blocking.md) - How tokio::fs works internally
 - [async-tokio-runtime](./async-tokio-runtime.md) - Runtime configuration
 - [err-context-chain](./err-context-chain.md) - Adding path context to IO errors
+- [security-resource-limits](./security-resource-limits.md) - Bound externally driven concurrency

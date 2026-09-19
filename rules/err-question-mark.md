@@ -15,12 +15,12 @@ fn load_config() -> Result<Config, Error> {
         Ok(c) => c,
         Err(e) => return Err(Error::Io(e)),
     };
-    
+
     let config = match toml::from_str(&content) {
         Ok(c) => c,
         Err(e) => return Err(Error::Parse(e)),
     };
-    
+
     Ok(config)
 }
 
@@ -33,7 +33,7 @@ fn load_config_bad() -> Config {
 
 ## Good
 
-```rust
+```rust,ignore
 fn load_config() -> Result<Config, Error> {
     let content = std::fs::read_to_string("config.toml")?;
     let config = toml::from_str(&content)?;
@@ -66,13 +66,13 @@ use anyhow::{Context, Result};
 
 fn load_user(id: u64) -> Result<User> {
     let path = format!("users/{}.json", id);
-    
+
     let content = std::fs::read_to_string(&path)
         .with_context(|| format!("failed to read user file: {}", path))?;
-    
+
     let user: User = serde_json::from_str(&content)
         .context("failed to parse user JSON")?;
-    
+
     Ok(user)
 }
 ```
@@ -103,7 +103,7 @@ use thiserror::Error;
 enum MyError {
     #[error("io error")]
     Io(#[from] std::io::Error),  // Auto From impl
-    
+
     #[error("parse error")]
     Parse(#[from] serde_json::Error),  // Auto From impl
 }
@@ -111,17 +111,17 @@ enum MyError {
 fn process() -> Result<(), MyError> {
     // ? automatically converts io::Error to MyError via From
     let content = std::fs::read_to_string("file.txt")?;
-    
+
     // ? automatically converts serde_json::Error to MyError
     let data: Data = serde_json::from_str(&content)?;
-    
+
     Ok(())
 }
 ```
 
 ## In main()
 
-```rust
+```rust,ignore
 // Option 1: Return Result from main
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = load_config()?;
@@ -147,5 +147,5 @@ fn run() -> anyhow::Result<()> {
 ## See Also
 
 - [err-context-chain](err-context-chain.md) - Add context with .context()
-- [err-from-impl](err-from-impl.md) - Use #[from] for automatic conversion
+- [err-from-impl](err-from-impl.md) - Use `#[from]` for automatic conversion
 - [err-anyhow-app](err-anyhow-app.md) - Use anyhow for applications

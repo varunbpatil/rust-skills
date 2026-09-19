@@ -1,0 +1,6 @@
+{
+  "markdown.validate.enabled": true,
+  "files.associations": { "**/rules/*.md": "skill" },
+  "rust-analyzer.linkedProjects": [],
+  "rust-analyzer.files.exclude": ["checks"]
+}

@@ -80,7 +80,7 @@ pub struct Point {
 
 ## Feature Documentation
 
-```rust
+````rust
 // lib.rs
 
 //! # Features
@@ -97,7 +97,7 @@ pub struct Point {
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 /// A configuration type.
-/// 
+///
 /// When the `serde` feature is enabled, this type implements
 /// `Serialize` and `Deserialize`.
 #[derive(Debug, Clone)]
@@ -106,11 +106,11 @@ pub struct Point {
 pub struct Config {
     pub name: String,
 }
-```
+````
 
 ## Multiple Optional Dependencies
 
-```rust
+```rust,ignore
 // Cargo.toml
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }
@@ -161,7 +161,7 @@ fn test_serde_roundtrip() {
 
 ## When to Make Serde Required
 
-```rust
+```rust,ignore
 // ✅ Required: Library is about serialization
 // (e.g., json-schema, config-file parser)
 [dependencies]

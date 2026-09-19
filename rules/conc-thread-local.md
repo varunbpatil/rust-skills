@@ -65,7 +65,9 @@ fn get_call_count() -> u32 {
 ## Key Points
 
 - `with_borrow` / `with_borrow_mut` are stable convenience methods (since 1.73) on `LocalKey<RefCell<T>>` — prefer them over the longer `with(|v| v.borrow_mut())` form.
-- Thread-local destructors run when the thread exits, so cleanup happens automatically.
+- Thread-local destructors usually run at thread exit, but platform and process-
+  shutdown caveats apply. Do not rely on TLS destruction for essential durable
+  cleanup; use explicit ownership and joining when cleanup must complete.
 - Avoid storing thread-locals in types that are sent across threads; the value is strictly per-thread and is not visible to other threads.
 - For read-only global constants shared across threads, use `static` with an immutable type instead.
 

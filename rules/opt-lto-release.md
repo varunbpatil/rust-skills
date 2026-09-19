@@ -1,10 +1,15 @@
 # opt-lto-release
 
-> Enable LTO in release builds
+> Measure ThinLTO or fat LTO for performance-sensitive final binaries
 
 ## Why It Matters
 
-Link-Time Optimization (LTO) enables optimizations across crate boundaries that aren't possible during normal compilation. This includes cross-crate inlining, dead code elimination, and devirtualization. Typically provides 5-20% performance improvement.
+Link-Time Optimization (LTO) can expose cross-crate inlining, dead-code
+elimination, and devirtualization opportunities. Its effect is workload- and
+toolchain-dependent: it can improve speed or size, do nothing material, or make
+builds much slower. Benchmark representative final binaries before selecting a
+setting. Libraries should generally leave final-link profile choices to their
+consumers.
 
 ## Bad
 
@@ -12,46 +17,40 @@ Link-Time Optimization (LTO) enables optimizations across crate boundaries that 
 # Cargo.toml - default release profile
 [profile.release]
 opt-level = 3
-# No LTO = missed optimization opportunities
+# Cargo's default still performs local thin LTO in some profile configurations.
 ```
 
 ## Good
 
 ```toml
-# Cargo.toml - optimized release profile
+# Cargo.toml - a profile to evaluate for a final binary
 [profile.release]
 opt-level = 3
-lto = "fat"          # Maximum optimization
-codegen-units = 1    # Better optimization (single codegen unit)
-panic = "abort"      # Smaller binary, no unwind tables
-strip = true         # Remove symbols for smaller binary
+lto = "thin"         # Try "thin" first; measure against false and "fat"
 ```
 
 ## LTO Options Explained
 
 ```toml
-# No LTO (default)
+# Default profile behavior; may perform thin-local LTO between a crate's CGUs
 lto = false
+
+# Disable all LTO, including thin-local LTO
+lto = "off"
 
 # Thin LTO - fast compilation, most benefits
 lto = "thin"
 
-# Fat LTO - slowest compilation, maximum optimization
+# Fat LTO - broader and usually slower; not guaranteed to be faster at runtime
 lto = "fat"
 # Equivalent to:
 lto = true
 
-# Thin-local - LTO within each crate only
-lto = "off"
 ```
 
-## Trade-offs
-
-| Setting | Compile Time | Binary Size | Performance |
-|---------|--------------|-------------|-------------|
-| `lto = false` | Fast | Larger | Baseline |
-| `lto = "thin"` | Medium | Smaller | +5-15% |
-| `lto = "fat"` | Slow | Smallest | +10-20% |
+Exact build-time, size, and runtime effects depend on the program. ThinLTO is
+often the practical first experiment; fat LTO considers more code together but
+is not universally faster or smaller.
 
 ## Evidence from Production
 
@@ -81,7 +80,7 @@ strip = "symbols"
 
 ```toml
 [profile.release]
-opt-level = 3        # Maximum optimization
+opt-level = 3        # Aggressive speed optimization
 lto = "fat"          # Link-time optimization
 codegen-units = 1    # Single codegen unit for better optimization
 panic = "abort"      # Remove panic unwinding code
@@ -105,12 +104,12 @@ opt-level = 3        # Optimize dependencies even in dev
 
 ## When to Use Each
 
-| Situation | LTO Setting |
-|-----------|-------------|
-| Development | `false` (fast compiles) |
-| CI builds | `"thin"` (balance) |
-| Release binaries | `"fat"` (max perf) |
-| Libraries (crates.io) | `false` (users choose) |
+| Situation             | LTO Setting                                                 |
+| --------------------- | ----------------------------------------------------------- |
+| Development           | `false` (fast compiles)                                     |
+| CI builds             | Match the artifact being validated, or prefer faster builds |
+| Release binaries      | Benchmark `false`, `"thin"`, and `"fat"`                    |
+| Libraries (crates.io) | `false` (users choose)                                      |
 
 ## Measuring Impact
 
@@ -130,6 +129,6 @@ ls -la target/release/myapp
 
 ## See Also
 
-- [opt-codegen-units](opt-codegen-units.md) - Use codegen-units = 1
+- [opt-codegen-units](opt-codegen-units.md) - Trade compile parallelism for optimization scope
 - [opt-pgo-profile](opt-pgo-profile.md) - Profile-guided optimization
 - [perf-release-profile](perf-release-profile.md) - Full release profile settings

@@ -15,7 +15,7 @@ pub mod internal {
         pub buffer: Vec<u8>,    // Implementation detail exposed
         pub dirty: bool,
     }
-    
+
     pub fn process_internal(state: &mut InternalState) {
         // Users can call this, creating coupling
     }
@@ -35,7 +35,7 @@ pub(crate) mod internal {
         pub(crate) buffer: Vec<u8>,
         pub(crate) dirty: bool,
     }
-    
+
     pub(crate) fn process_internal(state: &mut InternalState) {
         // Only callable within crate
     }
@@ -54,7 +54,7 @@ impl Widget {
             }
         }
     }
-    
+
     pub fn do_something(&mut self) {
         internal::process_internal(&mut self.state);
     }
@@ -63,13 +63,13 @@ impl Widget {
 
 ## Visibility Levels
 
-| Visibility | Accessible From |
-|------------|-----------------|
-| `pub` | Everywhere |
-| `pub(crate)` | Current crate only |
-| `pub(super)` | Parent module only |
-| `pub(in path)` | Specific module path |
-| (private) | Current module only |
+| Visibility     | Accessible From                   |
+| -------------- | --------------------------------- |
+| `pub`          | Everywhere                        |
+| `pub(crate)`   | Current crate only                |
+| `pub(super)`   | Parent module and its descendants |
+| `pub(in path)` | Specific module path              |
+| (private)      | Current module only               |
 
 ## Pattern: Internal Module
 
@@ -98,16 +98,20 @@ pub struct Parser {
     state: ParserState,
 }
 
-// Expose for testing but not public API
-#[cfg(test)]
-pub(crate) fn debug_state(&self) -> &ParserState {
-    &self.state
+pub(crate) struct ParserState;
+
+impl Parser {
+    // Expose for unit tests in this crate, but not the public API.
+    #[cfg(test)]
+    pub(crate) fn debug_state(&self) -> &ParserState {
+        &self.state
+    }
 }
 
-// Or use a dedicated test helper
-#[doc(hidden)]
-pub mod __test_helpers {
-    pub use super::ParserState;
+// Or use a dedicated helper for unit tests in this crate.
+#[cfg(test)]
+pub(crate) mod test_helpers {
+    pub(crate) use super::ParserState;
 }
 ```
 
@@ -115,25 +119,33 @@ pub mod __test_helpers {
 
 ```rust
 // src/user/mod.rs
-mod repository;  // Private
-mod service;     // Private
+mod adapters;
+mod errors;
+mod models;
+mod ports;
+mod service;
 
-pub use service::UserService;  // Only export the public API
+// `ports::Users` and the types in its method signatures are `pub(crate)`.
+pub(crate) use ports::Users;  // Deliberate re-export for other crate modules
+pub(crate) use service::UserService;  // Concrete implementation for startup
 
-// repository and service are pub(crate) internally
-// so other modules in crate can use them if needed
+// Feature-local outbound ports and their errors are `pub(super)`.
+// Concrete adapters stay implementation details.
 ```
+
+An application commonly keeps its inbound port and service crate-private and exposes only a public `run` or `start` function for its binaries. Use `pub(super)` for an outbound port shared within one feature; use `pub(crate)` for an inbound port and every type another feature needs to call it. If a library deliberately exposes a feature, publicly re-export its inbound-port trait and the domain types in its signatures; keep its concrete service, outbound ports, and adapters private.
 
 ## Benefits
 
-| Approach | API Stability | Flexibility |
-|----------|---------------|-------------|
-| All `pub` | Any change breaks users | None |
-| `pub(crate)` internals | Only `pub` items matter | Can refactor freely |
-| Private | Maximum encapsulation | Limits crate flexibility |
+| Approach               | API Stability           | Flexibility              |
+| ---------------------- | ----------------------- | ------------------------ |
+| All `pub`              | Any change breaks users | None                     |
+| `pub(crate)` internals | Only `pub` items matter | Can refactor freely      |
+| Private                | Maximum encapsulation   | Limits crate flexibility |
 
 ## See Also
 
 - [proj-pub-super-parent](./proj-pub-super-parent.md) - Parent-only visibility
 - [proj-pub-use-reexport](./proj-pub-use-reexport.md) - Clean re-exports
+- [proj-feature-boundaries](./proj-feature-boundaries.md) - Visibility for cross-feature contracts
 - [api-non-exhaustive](./api-non-exhaustive.md) - Future-proof structs

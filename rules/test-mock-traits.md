@@ -35,24 +35,39 @@ async fn test_get_user() {
 // Define trait for dependency
 #[async_trait]
 trait UserRepository: Send + Sync {
-    async fn find_by_id(&self, id: u64) -> Result<Option<User>, DbError>;
-    async fn save(&self, user: &User) -> Result<(), DbError>;
+    async fn find_by_id(&self, id: u64) -> Result<Option<User>, UserRepositoryError>;
+    async fn save(&self, user: &User) -> Result<(), UserRepositoryError>;
 }
 
-// Production implementation
+// Application-owned port error, never sqlx::Error or a database error code.
+enum UserRepositoryError {
+    Unavailable,
+}
+
+// Error exposed by this use case.
+enum GetUserError {
+    NotFound,
+    Repository(UserRepositoryError),
+}
+
+// Production adapter: framework and SQL types stay here.
 struct PostgresUserRepo {
     pool: PgPool,
 }
 
 #[async_trait]
 impl UserRepository for PostgresUserRepo {
-    async fn find_by_id(&self, id: u64) -> Result<Option<User>, DbError> {
+    async fn find_by_id(&self, id: u64) -> Result<Option<User>, UserRepositoryError> {
         sqlx::query_as("SELECT * FROM users WHERE id = $1")
             .bind(id)
             .fetch_optional(&self.pool)
             .await
+            .map_err(|_| UserRepositoryError::Unavailable)
     }
-    // ...
+
+    async fn save(&self, _user: &User) -> Result<(), UserRepositoryError> {
+        todo!("the production adapter owns the SQL insert")
+    }
 }
 
 // Service depends on trait, not concrete type
@@ -61,9 +76,12 @@ struct UserService<R: UserRepository> {
 }
 
 impl<R: UserRepository> UserService<R> {
-    async fn get_user(&self, id: u64) -> Result<User, Error> {
-        self.repo.find_by_id(id).await?
-            .ok_or(Error::NotFound)
+    async fn get_user(&self, id: u64) -> Result<User, GetUserError> {
+        self.repo
+            .find_by_id(id)
+            .await
+            .map_err(GetUserError::Repository)?
+            .ok_or(GetUserError::NotFound)
     }
 }
 
@@ -73,36 +91,54 @@ mod tests {
     struct MockUserRepo {
         users: HashMap<u64, User>,
     }
-    
+
     #[async_trait]
     impl UserRepository for MockUserRepo {
-        async fn find_by_id(&self, id: u64) -> Result<Option<User>, DbError> {
+        async fn find_by_id(&self, id: u64) -> Result<Option<User>, UserRepositoryError> {
             Ok(self.users.get(&id).cloned())
         }
-        // ...
+
+        async fn save(&self, _user: &User) -> Result<(), UserRepositoryError> {
+            Ok(())
+        }
     }
-    
+
     #[tokio::test]
     async fn test_get_user_found() {
         let mut mock = MockUserRepo { users: HashMap::new() };
         mock.users.insert(1, User { id: 1, name: "Alice".into() });
-        
+
         let service = UserService { repo: mock };
         let user = service.get_user(1).await.unwrap();
-        
+
         assert_eq!(user.name, "Alice");
     }
-    
+
     #[tokio::test]
     async fn test_get_user_not_found() {
         let mock = MockUserRepo { users: HashMap::new() };
         let service = UserService { repo: mock };
-        
+
         let result = service.get_user(999).await;
-        assert!(matches!(result, Err(Error::NotFound)));
+        assert!(matches!(result, Err(GetUserError::NotFound)));
     }
 }
 ```
+
+The repository trait is an application-owned port; `PostgresUserRepo` is an adapter. `UserRepositoryError` is a port-specific error: the adapter maps `PgPool`, `sqlx::Error`, and other vendor failures into it, while the service maps it into the use-case-specific `GetUserError`. This keeps the service and its fake independent of PostgreSQL.
+
+## Inbound Ports for Driving Adapters
+
+An inbound adapter can depend on one inbound-port trait, such as `Users`, which
+groups the feature's use cases and is implemented by `UserService`. A router
+test can supply a fake `Users` implementation to isolate request extraction
+and response translation. Service tests use the real `UserService` with fake
+outbound ports such as `UserRepository`.
+
+Start with one inbound-port trait rather than a trait per use case. Split it
+when separate callers need distinct capabilities. See
+[proj-ports-adapters](./proj-ports-adapters.md) for the complete relationship
+between an inbound port, `UserService`, and an outbound repository port.
 
 ## mockall Crate
 
@@ -119,12 +155,12 @@ trait Database: Send + Sync {
 #[tokio::test]
 async fn test_with_mockall() {
     let mut mock = MockDatabase::new();
-    
+
     mock.expect_query()
         .with(eq("SELECT 1"))
         .times(1)
         .returning(|_| Ok(vec![Row::new()]));
-    
+
     let result = mock.query("SELECT 1").await;
     assert!(result.is_ok());
 }
@@ -151,7 +187,7 @@ impl HttpClient for FailingClient {
 async fn test_handles_timeout() {
     let client = FailingClient;
     let service = ApiService { client };
-    
+
     let result = service.fetch_data().await;
     assert!(matches!(result, Err(Error::NetworkError(_))));
 }
@@ -187,3 +223,4 @@ async-trait = "0.1"  # For async trait mocking
 - [api-sealed-trait](./api-sealed-trait.md) - Trait design
 - [test-proptest-properties](./test-proptest-properties.md) - Property-based testing
 - [proj-lib-main-split](./proj-lib-main-split.md) - Testable architecture
+- [proj-ports-adapters](./proj-ports-adapters.md) - Application-owned ports and adapters

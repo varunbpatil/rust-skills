@@ -4,7 +4,11 @@
 
 ## Why It Matters
 
-`#[inline(always)]` forces the compiler to inline a function regardless of heuristics. Overuse increases binary size, hurts instruction cache, and can slow down code. The compiler is usually smarter about inlining than humans. Reserve this for measured hot paths where benchmarks prove a benefit.
+`#[inline(always)]` is the strongest stable inlining hint, not an absolute
+command: the compiler may still decline it. Overuse can increase binary size,
+hurt instruction-cache behavior, and slow compilation or execution. Reserve it
+for measured hot paths where benchmarks and, when useful, generated-code
+inspection show a benefit.
 
 ## Bad
 
@@ -40,7 +44,7 @@ pub fn calculate_tax(amount: f64) -> f64 {
     amount * 0.1
 }
 
-// Only force inline for proven hot paths
+// Use the strongest inline hint only for proven hot paths; it is not guaranteed.
 impl Hasher for MyHasher {
     // Hasher::write is called millions of times in tight loops
     // Profiling showed 15% improvement from forced inlining
@@ -87,7 +91,7 @@ fn add_simd(a: &[f32], b: &[f32], out: &mut [f32]) {
 #[inline]
 fn suggested_inline(x: i32) -> i32 { x + 1 }
 
-// #[inline(always)] - force inline (almost always)
+// #[inline(always)] - strongest hint; still not a language guarantee
 #[inline(always)]
 fn force_inline(x: i32) -> i32 { x + 1 }
 

@@ -4,7 +4,10 @@
 
 ## Why It Matters
 
-`SmallVec<[T; N]>` stores up to N elements inline (on the stack), only allocating on the heap when the size exceeds N. This eliminates heap allocations for the common case while still allowing growth when needed.
+`SmallVec<[T; N]>` stores up to N elements inline wherever the `SmallVec` value
+lives, allocating separate element storage when the size exceeds N. This can
+avoid allocation for the common case while still allowing growth when needed,
+at the cost of a larger collection value and inline/spilled state handling.
 
 ## Bad
 
@@ -27,12 +30,12 @@ fn validate(input: &Input) -> Vec<ValidationError> {
 ```rust
 use smallvec::{smallvec, SmallVec};
 
-// Stack-allocated for typical paths (1-8 components)
+// Inline for typical paths (1-8 components)
 fn get_path_components(path: &str) -> SmallVec<[&str; 8]> {
     path.split('/').collect()
 }
 
-// Stack-allocated for typical error counts
+// Inline for typical error counts
 fn validate(input: &Input) -> SmallVec<[ValidationError; 4]> {
     let mut errors = SmallVec::new();
     // validation logic...
@@ -52,7 +55,7 @@ let v: SmallVec<[i32; 4]> = smallvec![1, 2, 3];
 // Path components: 4-8 (most paths are shallow)
 type PathParts<'a> = SmallVec<[&'a str; 8]>;
 
-// Function arguments: 4-8 (most functions have few args)  
+// Function arguments: 4-8 (most functions have few args)
 type Args = SmallVec<[Arg; 8]>;
 
 // AST children: 2-4 (binary ops, if/else, etc.)
@@ -85,26 +88,25 @@ macro_rules! make_stmts_default {
 ## Trade-offs
 
 ```rust
-// SmallVec is slightly larger than Vec
+// Layout is target- and crate-version-dependent; inspect the types you use.
+use smallvec::SmallVec;
 use std::mem::size_of;
-// Vec<i32>: 24 bytes (ptr + len + cap)
-// SmallVec<[i32; 4]>: 32 bytes (inline storage + len + discriminant)
+println!("Vec: {}, SmallVec: {}", size_of::<Vec<i32>>(), size_of::<SmallVec<[i32; 4]>>());
 
-// SmallVec has branching overhead on every operation
-// (must check if inline or heap)
+// Operations may need to distinguish inline from spilled storage.
 
 // Profile to verify benefit!
 ```
 
 ## When to Use SmallVec vs Alternatives
 
-| Situation | Use |
-|-----------|-----|
-| Usually small, sometimes large | `SmallVec<[T; N]>` |
-| Always small, fixed max | `ArrayVec<T, N>` |
-| Rarely grows past initial | `Vec::with_capacity` |
-| No `unsafe` allowed | `TinyVec` |
-| Often empty | `ThinVec` |
+| Situation                      | Use                  |
+| ------------------------------ | -------------------- |
+| Usually small, sometimes large | `SmallVec<[T; N]>`   |
+| Always small, fixed max        | `ArrayVec<T, N>`     |
+| Rarely grows past initial      | `Vec::with_capacity` |
+| No `unsafe` allowed            | `TinyVec`            |
+| Often empty                    | `ThinVec`            |
 
 ## ArrayVec Alternative
 

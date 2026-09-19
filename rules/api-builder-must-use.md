@@ -16,11 +16,15 @@ struct RequestBuilder {
 }
 
 impl RequestBuilder {
+    fn new(url: impl Into<String>) -> Self {
+        Self { url: url.into(), timeout: None, headers: Vec::new() }
+    }
+
     fn timeout(mut self, duration: Duration) -> Self {
         self.timeout = Some(duration);
         self
     }
-    
+
     fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.push((key.to_string(), value.to_string()));
         self
@@ -36,7 +40,7 @@ let response = request.send();  // Sends with no timeout or headers
 
 ## Good
 
-```rust
+```rust,ignore
 struct RequestBuilder {
     url: String,
     timeout: Option<Duration>,
@@ -44,12 +48,16 @@ struct RequestBuilder {
 }
 
 impl RequestBuilder {
+    fn new(url: impl Into<String>) -> Self {
+        Self { url: url.into(), timeout: None, headers: Vec::new() }
+    }
+
     #[must_use = "builder methods return modified builder - chain or assign"]
     fn timeout(mut self, duration: Duration) -> Self {
         self.timeout = Some(duration);
         self
     }
-    
+
     #[must_use = "builder methods return modified builder - chain or assign"]
     fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.push((key.to_string(), value.to_string()));
@@ -83,12 +91,12 @@ impl ConfigBuilder {
         self.log_level = level;
         self
     }
-    
+
     fn max_connections(mut self, n: usize) -> Self {
         self.max_connections = n;
         self
     }
-    
+
     fn build(self) -> Config {
         Config {
             log_level: self.log_level,

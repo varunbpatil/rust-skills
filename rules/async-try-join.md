@@ -4,7 +4,11 @@
 
 ## Why It Matters
 
-When running multiple fallible operations concurrently, `try_join!` returns `Err` as soon as any future fails, without waiting for the others. This provides fail-fast behavior while still running operations in parallel. For many operations, use `futures::future::try_join_all`.
+When running multiple fallible operations concurrently, `try_join!` returns
+`Err` as soon as any future fails, without waiting for the others. It polls the
+futures concurrently on the same task; they run in parallel only if their
+underlying work does. For a collection driven by untrusted input, prefer a
+stream with bounded concurrency over an unbounded `try_join_all`.
 
 ## Bad
 
@@ -27,7 +31,7 @@ async fn fetch_all() -> (Result<A>, Result<B>, Result<C>) {
 
 ## Good
 
-```rust
+```rust,ignore
 use tokio::try_join;
 
 async fn fetch_all() -> Result<(A, B, C)> {
@@ -37,7 +41,7 @@ async fn fetch_all() -> Result<(A, B, C)> {
         fetch_b(),
         fetch_c(),
     )?;
-    
+
     Ok((a, b, c))
 }
 
@@ -48,14 +52,14 @@ async fn fetch_users(ids: &[u64]) -> Result<Vec<User>> {
     let futures: Vec<_> = ids.iter()
         .map(|id| fetch_user(*id))
         .collect();
-    
+
     try_join_all(futures).await
 }
 ```
 
 ## Error Handling Patterns
 
-```rust
+```rust,ignore
 // Different error types - need common error type
 async fn mixed_operations() -> Result<(A, B), Error> {
     let (a, b) = try_join!(
@@ -75,7 +79,7 @@ async fn best_effort(ids: &[u64]) -> Vec<User> {
     let results = futures::future::join_all(
         ids.iter().map(|id| fetch_user(*id))
     ).await;
-    
+
     results.into_iter()
         .filter_map(|r| match r {
             Ok(user) => Some(user),
@@ -90,13 +94,13 @@ async fn best_effort(ids: &[u64]) -> Vec<User> {
 
 ## Cancellation Behavior
 
-```rust
+```rust,ignore
 // try_join! cancels remaining futures on error
 async fn with_cancellation() -> Result<()> {
     // If fetch_a() fails, fetch_b() and fetch_c() are dropped
-    // But "dropped" != "immediately stopped"
-    // They stop at their next .await point
-    
+    // Dropping stops polling them immediately. External work they already
+    // started may continue, so each future must be cancellation-safe.
+
     try_join!(
         async {
             fetch_a().await?;
@@ -109,7 +113,7 @@ async fn with_cancellation() -> Result<()> {
             Ok::<_, Error>(())
         },
     )?;
-    
+
     Ok(())
 }
 
@@ -118,7 +122,7 @@ async fn with_cancellation() -> Result<()> {
 
 ## With Timeout
 
-```rust
+```rust,ignore
 use tokio::time::{timeout, Duration};
 
 async fn fetch_with_timeout() -> Result<(A, B)> {
@@ -170,3 +174,5 @@ while let Some(result) = futures.next().await {
 - [async-join-parallel](./async-join-parallel.md) - Non-fallible concurrent futures
 - [async-select-racing](./async-select-racing.md) - First-to-complete semantics
 - [err-question-mark](./err-question-mark.md) - Error propagation
+- [async-cancel-safety](./async-cancel-safety.md) - Preserve invariants when futures are dropped
+- [security-resource-limits](./security-resource-limits.md) - Bound dynamic fan-out

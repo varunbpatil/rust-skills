@@ -71,3 +71,4 @@ fn parallel_fill(left: &mut [u8], right: &mut [u8]) {
 - [own-arc-shared](own-arc-shared.md) - use `Arc<T>` when data genuinely outlives the parallel task
 - [conc-rayon-par-iter](conc-rayon-par-iter.md) - higher-level data parallelism for collections
 - [async-spawn-blocking](async-spawn-blocking.md) - offload blocking work from async runtimes
+- [conc-join-threads](conc-join-threads.md) - handle completion and failures from owned threads

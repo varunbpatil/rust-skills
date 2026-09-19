@@ -42,7 +42,7 @@ use my_crate::{Client, Config};  // Uses public API only
 fn test_full_workflow() {
     let config = Config::default();
     let client = Client::new(config);
-    
+
     let result = client.process("input");
     assert!(result.is_ok());
 }
@@ -50,7 +50,7 @@ fn test_full_workflow() {
 #[test]
 fn test_error_handling() {
     let client = Client::new(Config::strict());
-    
+
     let result = client.process("invalid");
     assert!(matches!(result, Err(Error::InvalidInput { .. })));
 }
@@ -113,13 +113,13 @@ fn test_create_user() { ... }
 
 ## Integration vs Unit Tests
 
-| Unit Tests | Integration Tests |
-|------------|-------------------|
-| In `src/` with `#[cfg(test)]` | In `tests/` directory |
-| Access private items | Public API only |
-| Test individual functions | Test module interactions |
-| Fast, isolated | May be slower |
-| `cargo test --lib` | `cargo test --test '*'` |
+| Unit Tests                    | Integration Tests        |
+| ----------------------------- | ------------------------ |
+| In `src/` with `#[cfg(test)]` | In `tests/` directory    |
+| Access private items          | Public API only          |
+| Test individual functions     | Test module interactions |
+| Fast, isolated                | May be slower            |
+| `cargo test --lib`            | `cargo test --test '*'`  |
 
 ## Running Specific Tests
 
@@ -136,6 +136,25 @@ cargo test --test integration_test
 # Run tests matching pattern
 cargo test --test api_tests test_login
 ```
+
+## Testing Command-Line Binaries
+
+For CLI integration tests, [`assert_cmd`](https://crates.io/crates/assert_cmd)
+locates Cargo-built binaries and asserts exit status and output.
+[`predicates`](https://crates.io/crates/predicates) provides composable output
+assertions. Use temporary directories for filesystem effects, and prefer exact
+snapshot or structured assertions when whitespace and ordering are part of the
+CLI contract.
+
+For outbound HTTP adapters, [`wiremock`](https://crates.io/crates/wiremock)
+provides a local mock server that can assert request contracts and return
+controlled responses. Keep protocol-level integration tests against the real
+service or a faithful emulator where mock behavior could drift.
+
+Large workspaces can use [`cargo-nextest`](https://nexte.st/) for configurable
+test profiles, process isolation, retries, and machine-readable reports. Retain
+the standard Cargo test paths needed by the project, including documentation
+tests and target-specific CI.
 
 ## See Also
 

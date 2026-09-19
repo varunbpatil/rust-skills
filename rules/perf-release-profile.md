@@ -4,9 +4,29 @@
 
 ## Why It Matters
 
-The default release profile prioritizes compile speed over runtime performance. For production binaries, tuning the release profile can yield significant performance improvements (10-40% in some cases) at the cost of longer compile times.
+The default release profile balances build time, runtime performance, binary
+size, and debuggability. Final binaries may benefit from different LTO, codegen
+unit, panic, stripping, or debug-info choices, but no single profile maximizes
+every objective. Measure representative workloads and preserve the operational
+semantics and diagnostics the deployment requires.
 
-## Default Profile
+## Bad
+
+Copying a “maximum performance” profile without benchmarking can increase build
+time, remove required diagnostics, or change panic behavior without improving
+the deployed workload.
+
+```toml
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+```
+
+## Good
+
+### Default Profile
 
 ```toml
 [profile.release]
@@ -16,14 +36,14 @@ lto = false
 codegen-units = 16
 ```
 
-## Optimized Profile
+## Candidate Profile to Measure
 
 ```toml
 [profile.release]
-opt-level = 3          # Maximum optimization
-lto = "fat"            # Full link-time optimization
-codegen-units = 1      # Better optimization, slower compile
-panic = "abort"        # Smaller binary, no unwinding
+opt-level = 3          # Aggressive optimization, not always fastest
+lto = "fat"            # More cross-crate optimization, slower linking
+codegen-units = 1      # More optimization opportunity, slower compilation
+panic = "abort"        # Smaller binary; choose only after evaluating failure semantics
 strip = true           # Remove symbols
 
 [profile.release.package."*"]
@@ -33,33 +53,38 @@ opt-level = 3
 
 ## Profile Options
 
-| Option | Values | Effect |
-|--------|--------|--------|
-| `opt-level` | 0-3, "s", "z" | Optimization level |
-| `lto` | false, "thin", "fat" | Link-time optimization |
-| `codegen-units` | 1-256 | Parallel compilation units |
-| `panic` | "unwind", "abort" | Panic behavior |
-| `strip` | true, false, "symbols", "debuginfo" | Binary stripping |
-| `debug` | true, false, 0-2 | Debug info level |
+| Option          | Values                              | Effect                     |
+| --------------- | ----------------------------------- | -------------------------- |
+| `opt-level`     | 0-3, "s", "z"                       | Optimization level         |
+| `lto`           | false, "thin", "fat"                | Link-time optimization     |
+| `codegen-units` | 1-256                               | Parallel compilation units |
+| `panic`         | "unwind", "abort"                   | Panic behavior             |
+| `strip`         | true, false, "symbols", "debuginfo" | Binary stripping           |
+| `debug`         | true, false, 0-2                    | Debug info level           |
+
+`panic = "abort"` removes unwinding and can reduce binary size, but it also skips
+unwinding-based cleanup and changes how a production process fails. It is not a
+universal release default: choose it deliberately, document the operational
+effect, and test the actual release profile.
 
 ## Optimization Levels
 
-| Level | Description | Use Case |
-|-------|-------------|----------|
-| `0` | No optimization | Debug builds |
-| `1` | Basic optimization | Fast compile |
-| `2` | Most optimizations | Balanced |
-| `3` | All optimizations | Maximum performance |
-| `"s"` | Optimize for size | Embedded |
-| `"z"` | Minimize size | Smallest binary |
+| Level | Description        | Use Case            |
+| ----- | ------------------ | ------------------- |
+| `0`   | No optimization    | Debug builds        |
+| `1`   | Basic optimization | Fast compile        |
+| `2`   | Most optimizations | Balanced            |
+| `3`   | All optimizations  | Maximum performance |
+| `"s"` | Optimize for size  | Embedded            |
+| `"z"` | Minimize size      | Smallest binary     |
 
 ## LTO Options
 
-| Option | Compile Time | Performance | Binary Size |
-|--------|--------------|-------------|-------------|
-| `false` | Fast | Baseline | Larger |
-| `"thin"` | Medium | Good | Smaller |
-| `"fat"` | Slow | Best | Smallest |
+| Option   | Compile Time    | Performance         | Binary Size       |
+| -------- | --------------- | ------------------- | ----------------- |
+| `false`  | Usually fastest | Baseline to measure | Program-dependent |
+| `"thin"` | Slower          | Program-dependent   | Program-dependent |
+| `"fat"`  | Usually slowest | Program-dependent   | Program-dependent |
 
 ## Custom Profiles
 
@@ -147,3 +172,4 @@ codegen-units = 16
 - [opt-lto-release](./opt-lto-release.md) - LTO details
 - [opt-codegen-units](./opt-codegen-units.md) - Codegen units
 - [opt-pgo-profile](./opt-pgo-profile.md) - Profile-guided optimization
+- [security-panic-semantics](./security-panic-semantics.md) - choose and test production panic behavior

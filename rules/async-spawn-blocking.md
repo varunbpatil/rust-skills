@@ -1,10 +1,14 @@
 # async-spawn-blocking
 
-> Use `spawn_blocking` for CPU-intensive work
+> Offload blocking work; bound or separately pool sustained CPU work
 
 ## Why It Matters
 
-Async runtimes like Tokio use a small number of threads to handle many tasks. CPU-intensive or blocking operations on these threads starve other tasks. `spawn_blocking` moves such work to a dedicated thread pool.
+Async runtimes like Tokio use a small number of threads to handle many tasks.
+CPU-intensive or blocking operations on these threads starve other tasks.
+`spawn_blocking` moves synchronous work to Tokio's blocking pool. Because that
+pool permits many threads by default and a running blocking task cannot be
+aborted, bound admission for CPU work or use a dedicated CPU pool such as Rayon.
 
 ## Bad
 
@@ -55,7 +59,7 @@ async fn read_with_sync_lib(path: PathBuf) -> Vec<u8> {
 
 ## What Counts as Blocking
 
-```rust
+```rust,ignore
 // CPU-intensive operations
 - Cryptographic operations (hashing, encryption)
 - Image/video processing
@@ -69,45 +73,40 @@ async fn read_with_sync_lib(path: PathBuf) -> Vec<u8> {
 - Synchronous HTTP clients
 - Thread::sleep
 
-// Example thresholds (rough guidelines):
-// < 10µs: OK on async thread
-// 10µs - 1ms: Consider spawn_blocking
-// > 1ms: Definitely spawn_blocking
+// There is no portable duration threshold. Measure tail latency under the
+// target runtime configuration and workload. Bound expensive work so bursts
+// cannot create an unbounded queue or too many active blocking tasks.
 ```
 
 ## Practical Examples
 
 ```rust
+use std::io::Write as _;
+
 // Password hashing (CPU-intensive)
-async fn hash_password(password: String) -> String {
-    task::spawn_blocking(move || {
-        bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap()
+async fn hash_password(password: String) -> anyhow::Result<String> {
+    Ok(task::spawn_blocking(move || {
+        bcrypt::hash(password, bcrypt::DEFAULT_COST)
     })
-    .await
-    .unwrap()
+    .await??)
 }
 
 // JSON parsing of large documents
-async fn parse_large_json(data: String) -> serde_json::Value {
-    task::spawn_blocking(move || {
-        serde_json::from_str(&data).unwrap()
-    })
-    .await
-    .unwrap()
+async fn parse_large_json(data: String) -> anyhow::Result<serde_json::Value> {
+    Ok(task::spawn_blocking(move || serde_json::from_str(&data)).await??)
 }
 
 // Compression
-async fn compress_data(data: Vec<u8>) -> Vec<u8> {
-    task::spawn_blocking(move || {
+async fn compress_data(data: Vec<u8>) -> anyhow::Result<Vec<u8>> {
+    Ok(task::spawn_blocking(move || -> std::io::Result<Vec<u8>> {
         let mut encoder = flate2::write::GzEncoder::new(
             Vec::new(),
             flate2::Compression::default(),
         );
-        encoder.write_all(&data).unwrap();
-        encoder.finish().unwrap()
+        encoder.write_all(&data)?;
+        encoder.finish()
     })
-    .await
-    .unwrap()
+    .await??)
 }
 ```
 
@@ -135,7 +134,9 @@ let result = tokio::task::spawn_blocking(|| {
 ## Rayon for Parallel CPU Work
 
 ```rust
-// For parallel CPU work, consider Rayon inside spawn_blocking
+// For sustained parallel CPU work, use a bounded Rayon pool. The outer
+// spawn_blocking bridge prevents waiting for Rayon from occupying an executor
+// worker; do not create a new Rayon pool per request.
 async fn parallel_process(items: Vec<Item>) -> Vec<Output> {
     task::spawn_blocking(move || {
         use rayon::prelude::*;
@@ -152,3 +153,4 @@ async fn parallel_process(items: Vec<Item>) -> Vec<Output> {
 
 - [async-tokio-fs](async-tokio-fs.md) - Use tokio::fs for async file I/O
 - [async-no-lock-await](async-no-lock-await.md) - Don't hold locks across await
+- [security-resource-limits](security-resource-limits.md) - Bound concurrency and work at trust boundaries

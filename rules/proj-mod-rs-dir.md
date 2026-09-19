@@ -6,7 +6,21 @@
 
 Rust offers two styles for multi-file modules. The `mod.rs` style is clearer for larger modules and aligns with how most Rust projects are structured. Choose one style consistently.
 
-## Two Styles
+## Bad
+
+Do not mix `feature.rs` and `feature/mod.rs` as competing roots for the same
+module, or switch conventions unpredictably between sibling modules.
+
+```text
+src/
+├── user.rs
+└── user/
+    └── mod.rs  # conflicts with user.rs as the root of `mod user`
+```
+
+## Good
+
+### Two Styles
 
 ### Style 1: mod.rs (Recommended for larger modules)
 
@@ -14,8 +28,13 @@ Rust offers two styles for multi-file modules. The `mod.rs` style is clearer for
 src/
 ├── user/
 │   ├── mod.rs          # Module root
-│   ├── model.rs
-│   └── repository.rs
+│   ├── models.rs
+│   ├── errors.rs
+│   ├── ports.rs
+│   ├── service.rs
+│   └── adapters/
+│       ├── mod.rs
+│       └── sqlite.rs
 └── lib.rs
 ```
 
@@ -24,9 +43,13 @@ src/
 mod user;  // Looks for user/mod.rs or user.rs
 
 // src/user/mod.rs
-mod model;
-mod repository;
-pub use model::User;
+mod adapters;
+mod errors;
+mod models;
+mod ports;
+mod service;
+
+pub use models::User;
 ```
 
 ### Style 2: Adjacent file (Recommended for smaller modules)
@@ -35,8 +58,11 @@ pub use model::User;
 src/
 ├── user.rs             # Module root
 ├── user/
-│   ├── model.rs
-│   └── repository.rs
+│   ├── models.rs
+│   ├── errors.rs
+│   ├── ports.rs
+│   ├── service.rs
+│   └── adapters.rs
 └── lib.rs
 ```
 
@@ -45,19 +71,23 @@ src/
 mod user;  // Looks for user.rs, then user/ for submodules
 
 // src/user.rs
-mod model;
-mod repository;
-pub use model::User;
+mod adapters;
+mod errors;
+mod models;
+mod ports;
+mod service;
+
+pub use models::User;
 ```
 
 ## When to Use Each
 
-| Scenario | Recommendation |
-|----------|----------------|
+| Scenario                       | Recommendation                      |
+| ------------------------------ | ----------------------------------- |
 | Simple module (1-3 submodules) | Adjacent file (`user.rs` + `user/`) |
-| Complex module (4+ submodules) | `mod.rs` style (`user/mod.rs`) |
-| Deep nesting | `mod.rs` at each level |
-| Library with public modules | Consistent style throughout |
+| Complex module (4+ submodules) | `mod.rs` style (`user/mod.rs`)      |
+| Deep nesting                   | `mod.rs` at each level              |
+| Library with public modules    | Consistent style throughout         |
 
 ## mod.rs Benefits
 
@@ -77,35 +107,36 @@ pub use model::User;
 
 ```
 src/
-├── database/
+├── user/
 │   ├── mod.rs          # Main module, re-exports
-│   ├── connection.rs   # Connection pool
-│   ├── migrations.rs   # Schema migrations
-│   ├── queries/        # Sub-module for queries
-│   │   ├── mod.rs
-│   │   ├── user.rs
-│   │   └── order.rs
-│   └── error.rs
+│   ├── models.rs
+│   ├── errors.rs
+│   ├── ports.rs
+│   ├── service.rs
+│   └── adapters/
+│       ├── mod.rs
+│       ├── http.rs
+│       └── postgres.rs
 └── lib.rs
 ```
 
 ```rust
-// src/database/mod.rs
-mod connection;
-mod migrations;
-mod queries;
-mod error;
+// src/user/mod.rs
+mod adapters;
+mod errors;
+mod models;
+mod ports;
+mod service;
 
-pub use connection::Pool;
-pub use error::DatabaseError;
-pub use queries::{UserQueries, OrderQueries};
+pub use models::User;
+pub(crate) use service::UserService;
 ```
 
 ## Consistency Rule
 
 Pick one style for your project and stick with it:
 
-```rust
+```rust,ignore
 // Cargo.toml or clippy.toml
 [lints.clippy]
 mod_module_files = "warn"  # Enforces mod.rs style

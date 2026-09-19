@@ -45,7 +45,7 @@ serde = { version = "1", optional = true }
 tokio = { version = "1", optional = true }
 ```
 
-```rust
+```rust,ignore
 // lib.rs — std is opt-in, no_std is the default baseline
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -62,6 +62,14 @@ use alloc::vec::Vec;
 - If you ship a `no_std` crate, make `std` a feature in `default`, not the other way around.
 - Mutually exclusive features (e.g. `backend-a` vs `backend-b`) cannot be enforced by Cargo; emit a compile-time error via `compile_error!` if both are set, and document the limitation clearly.
 - Use `dep:` syntax (`dep:serde`) to keep optional dependency names out of the feature namespace.
+
+## Check Feature Combinations
+
+Use [`cargo-hack`](https://crates.io/crates/cargo-hack) in CI to exercise useful
+feature combinations, for example `cargo hack check --feature-powerset`. Limit
+the powerset or exclude known incompatible external backends when the complete
+matrix is too large. The tool checks that combinations compile; tests still
+need to cover behavior that changes when features are enabled.
 
 ## See Also
 

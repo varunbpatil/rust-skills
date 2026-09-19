@@ -4,7 +4,7 @@
 
 ## Why It Matters
 
-Logs and traces are routinely shipped to cloud aggregators (Datadog, Grafana Loki, Splunk) and retained for weeks or months. If a password, API token, session cookie, or piece of PII (email, SSN, health data) appears in a log line or span field, it leaks into systems with weaker access controls than your secrets manager, appears in support exports, and may violate GDPR/HIPAA/PCI-DSS. The fix is cheap: use `#[instrument(skip(...))]` or `skip_all` to exclude sensitive arguments, and wrap sensitive types in a redacting newtype or use the `secrecy` crate's `Secret<T>` which prints `[redacted]` from both `Debug` and `Display`.
+Logs and traces are routinely shipped to cloud aggregators (Datadog, Grafana Loki, Splunk) and retained for weeks or months. If a password, API token, session cookie, or piece of PII (email, SSN, health data) appears in a log line or span field, it leaks into systems with weaker access controls than your secrets manager, appears in support exports, and may violate GDPR/HIPAA/PCI-DSS. Use `#[instrument(skip(...))]` or `skip_all` to exclude sensitive arguments, and wrap sensitive types in a redacting newtype or use the `secrecy` crate's `SecretString`/`SecretBox<T>`, whose `Debug` output is redacted and whose contents require explicit exposure.
 
 ## Bad
 
@@ -65,10 +65,14 @@ fn verify_password(_username: &str, _password: &Secret) -> bool { true }
 ```
 
 ```rust
-// Alternative: use the `secrecy` crate (Secret<T> implements Debug as "[redacted]")
-// use secrecy::{Secret, ExposeSecret};
-// struct Credentials { username: String, password: Secret<String> }
-// credentials.password.expose_secret()  // only call site that reveals value
+use secrecy::{ExposeSecret as _, SecretString};
+
+let password = SecretString::from("correct horse battery staple");
+assert_eq!(password.expose_secret(), "correct horse battery staple");
+
+// `Debug` is redacted, and `SecretString` deliberately has no `Display` impl.
+let diagnostic = format!("{password:?}");
+assert!(!diagnostic.contains(password.expose_secret()));
 ```
 
 ## Key Points
@@ -76,7 +80,7 @@ fn verify_password(_username: &str, _password: &Secret) -> bool { true }
 - **`skip(arg)`**: exclude a single argument from `#[instrument]` auto-captured fields.
 - **`skip_all`**: exclude all arguments; then add only safe fields with `fields(key = value)`.
 - **Redacting newtypes**: override `Debug` and `Display` to emit `"[redacted]"` — this protects against accidental `?arg` or `%arg` elsewhere in the codebase.
-- **`secrecy` crate**: provides `Secret<T>` with a `[redacted]` `Debug` impl and an explicit `.expose_secret()` API so you know exactly where the value is revealed.
+- **`secrecy` crate**: provides `SecretString` and `SecretBox<T>` with redacted `Debug`, no generic `Display` implementation, explicit `.expose_secret()` access, and zeroization on drop for supported contents.
 - **Do not log full request bodies** in production: they may contain tokens, credentials, or PII embedded in JSON payloads. Log only metadata (size, content-type, path).
 - Audit existing spans with `RUST_LOG=trace` in a staging environment before shipping.
 
@@ -85,3 +89,4 @@ fn verify_password(_username: &str, _password: &Secret) -> bool { true }
 - [obs-instrument-spans](obs-instrument-spans.md) - how to use `#[instrument]` and spans correctly
 - [obs-structured-fields](obs-structured-fields.md) - structured fields must be safe to emit
 - [err-thiserror-lib](err-thiserror-lib.md) - defining error types that don't accidentally expose secrets
+- [security-secret-comparisons](security-secret-comparisons.md) - compare attacker-observable secrets safely

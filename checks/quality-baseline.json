@@ -1,0 +1,10 @@
+{
+  "artifacts": 64,
+  "compiled_clean": 312,
+  "examples_checked": 694,
+  "fragments": 318,
+  "ignored_blocks": 111,
+  "low_signal": 0,
+  "rust_blocks": 1116,
+  "suspects": 0
+}

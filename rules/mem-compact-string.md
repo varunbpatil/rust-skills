@@ -4,14 +4,18 @@
 
 ## Why It Matters
 
-Standard `String` is 24 bytes (pointer + length + capacity). For applications storing millions of short strings, this overhead dominates. Compact string libraries like `compact_str`, `smartstring`, or `ecow` store small strings inline (no heap allocation) and use optimized layouts for larger strings.
+On common 64-bit targets, `String` is 24 bytes (pointer, length, capacity).
+Non-empty strings generally use a separate allocation, while an empty `String`
+does not need one. For applications storing many short strings, compact string
+libraries can store content inline. Layout and inline capacity are crate-version-
+and target-dependent, so verify rather than treating the table below as an ABI.
 
 ## Bad
 
 ```rust
 struct User {
     id: u64,
-    // Most usernames are < 24 chars, but String is always 24 bytes + heap
+    // String metadata is three words; non-empty content is usually on the heap.
     username: String,
     email: String,
 }
@@ -88,7 +92,7 @@ s3.push_str(" modified");  // Now allocates
 
 ## Memory Comparison
 
-```rust
+```rust,ignore
 use std::mem::size_of;
 
 // All 24 bytes, but different inline capacities
@@ -100,18 +104,18 @@ assert_eq!(size_of::<ecow::EcoString>(), 16);  // Even smaller!
 
 ## Inline Capacity
 
-| Type | Size | Inline Capacity |
-|------|------|-----------------|
-| `String` | 24 | 0 (always heap) |
-| `CompactString` | 24 | 23 bytes [^1] |
-| `SmartString<LazyCompact>` | 24 | 23 bytes |
-| `EcoString` | 16 | 15 bytes |
+| Type                       | Size | Inline Capacity                         |
+| -------------------------- | ---- | --------------------------------------- |
+| `String`                   | 24   | 0 (non-empty content stored separately) |
+| `CompactString`            | 24   | 23 bytes [^1]                           |
+| `SmartString<LazyCompact>` | 24   | 23 bytes                                |
+| `EcoString`                | 16   | 15 bytes                                |
 
 [^1]: CompactString reserves the final byte of its 24-byte representation for a length tag, so the maximum inline string length is 23 bytes.
 
 ## When to Use
 
-```rust
+```rust,ignore
 // ✅ Good: Many short strings in memory
 struct Dictionary {
     words: Vec<CompactString>,  // Millions of short words

@@ -55,7 +55,7 @@ match divide(10, 0) {
 
 ## The ? Operator
 
-```rust
+```rust,ignore
 fn process_file(path: &str) -> Result<ProcessedData, Error> {
     let content = std::fs::read_to_string(path)?;  // Propagates Err
     let parsed: RawData = serde_json::from_str(&content)?;
@@ -106,10 +106,10 @@ use thiserror::Error;
 pub enum ConfigError {
     #[error("failed to read file: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("failed to parse config: {0}")]
     Parse(#[from] toml::de::Error),
-    
+
     #[error("missing required field: {0}")]
     MissingField(String),
 }

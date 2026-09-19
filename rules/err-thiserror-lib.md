@@ -54,13 +54,13 @@ use thiserror::Error;
 pub enum ParseError {
     #[error("invalid syntax at line {line}: {message}")]
     Syntax { line: usize, message: String },
-    
+
     #[error("unexpected end of file")]
     UnexpectedEof,
-    
+
     #[error("invalid utf-8 encoding")]
     Utf8(#[from] std::str::Utf8Error),
-    
+
     #[error("io error reading input")]
     Io(#[from] std::io::Error),
 }
@@ -88,27 +88,29 @@ match parse(input) {
 
 ## Key Attributes
 
+At an application boundary, keep vendor errors inside the adapter that talks to that vendor. The `Database` variant below is appropriate for adapter-local or infrastructure code; an outbound port should instead expose an application-owned, port-specific error after the adapter maps `sqlx::Error` into it.
+
 ```rust
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum MyError {
+pub enum AdapterError {
     // Simple message
     #[error("operation failed")]
     Failed,
-    
+
     // Interpolated fields
     #[error("invalid value: {0}")]
     InvalidValue(String),
-    
+
     // Named fields
     #[error("connection to {host}:{port} failed")]
     Connection { host: String, port: u16 },
-    
+
     // Automatic From impl with #[from]
     #[error("database error")]
     Database(#[from] sqlx::Error),
-    
+
     // Source without From (manual conversion needed)
     #[error("validation failed")]
     Validation {
@@ -116,7 +118,7 @@ pub enum MyError {
         cause: ValidationError,
         field: String,
     },
-    
+
     // Transparent - delegates Display and source to inner
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -132,10 +134,10 @@ use thiserror::Error;
 pub enum ConfigError {
     #[error("failed to read config file")]
     Read(#[source] std::io::Error),
-    
+
     #[error("failed to parse config")]
     Parse(#[source] toml::de::Error),
-    
+
     #[error("invalid config value for '{key}'")]
     InvalidValue {
         key: String,
@@ -148,24 +150,25 @@ pub enum ConfigError {
 fn load_config(path: &Path) -> Result<Config, ConfigError> {
     let content = std::fs::read_to_string(path)
         .map_err(ConfigError::Read)?;
-    
+
     let config: Config = toml::from_str(&content)
         .map_err(ConfigError::Parse)?;
-    
+
     Ok(config)
 }
 ```
 
 ## Library vs Application
 
-| Context | Crate | Why |
-|---------|-------|-----|
-| Library | `thiserror` | Typed errors users can match |
-| Application | `anyhow` | Easy error handling with context |
-| Both | `thiserror` for public API, `anyhow` internally | Best of both |
+| Context     | Crate                                           | Why                              |
+| ----------- | ----------------------------------------------- | -------------------------------- |
+| Library     | `thiserror`                                     | Typed errors users can match     |
+| Application | `anyhow`                                        | Easy error handling with context |
+| Both        | `thiserror` for public API, `anyhow` internally | Best of both                     |
 
 ## See Also
 
 - [err-anyhow-app](err-anyhow-app.md) - Use anyhow for applications
-- [err-from-impl](err-from-impl.md) - Use #[from] for automatic conversion
-- [err-source-chain](err-source-chain.md) - Use #[source] to chain errors
+- [err-from-impl](err-from-impl.md) - Use `#[from]` for automatic conversion
+- [err-source-chain](err-source-chain.md) - Use `#[source]` to chain errors
+- [proj-ports-adapters](proj-ports-adapters.md) - translate vendor errors at adapter boundaries

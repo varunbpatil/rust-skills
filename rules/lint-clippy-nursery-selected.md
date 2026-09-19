@@ -58,13 +58,13 @@ impl MyStruct {
 
 ## Suggested Starter Set
 
-| Lint | What it catches |
-|------|----------------|
-| `significant_drop_tightening` | Guards/locks held longer than needed |
-| `redundant_clone` | `.clone()` where a move suffices |
-| `use_self` | Type name repeated inside `impl` block |
-| `redundant_else` | `else` after diverging `if` branch |
-| `or_fun_call` | `or(Default::default())` → `or_default()` |
+| Lint                          | What it catches                           |
+| ----------------------------- | ----------------------------------------- |
+| `significant_drop_tightening` | Guards/locks held longer than needed      |
+| `redundant_clone`             | `.clone()` where a move suffices          |
+| `use_self`                    | Type name repeated inside `impl` block    |
+| `redundant_else`              | `else` after diverging `if` branch        |
+| `or_fun_call`                 | `or(Default::default())` → `or_default()` |
 
 Start with this set. Add more only after reviewing what they flag in your codebase.
 
@@ -72,4 +72,4 @@ Start with this set. Add more only after reviewing what they flag in your codeba
 
 - [lint-pedantic-selective](lint-pedantic-selective.md) - same strategy for clippy::pedantic
 - [lint-warn-perf](lint-warn-perf.md) - enable the performance lint group
-- [anti-lock-across-await](anti-lock-across-await.md) - don't hold locks across `.await`
+- [async-no-lock-await](async-no-lock-await.md) - don't hold locks across `.await`

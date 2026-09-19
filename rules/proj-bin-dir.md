@@ -37,8 +37,8 @@ my-project/
 ├── src/
 │   ├── lib.rs        # Shared library code
 │   └── bin/
-│       ├── server.rs # Binary: my-project-server (or just server)
-│       └── cli.rs    # Binary: my-project-cli (or just cli)
+│       ├── server.rs # Binary: server
+│       └── cli.rs    # Binary: cli
 ```
 
 Each file in `src/bin/` automatically becomes a binary named after the file.
@@ -68,7 +68,7 @@ src/
     ├── server/
     │   ├── main.rs      # Entry point
     │   ├── config.rs    # Server-specific module
-    │   └── handlers.rs
+    │   └── routes.rs    # Server-specific transport wiring
     └── cli/
         ├── main.rs
         └── commands.rs
@@ -77,37 +77,45 @@ src/
 ## Pattern: Shared Library Code
 
 ```rust
-// src/lib.rs - Shared code
+// src/lib.rs - Shared application code and startup functions
 pub mod config;
-pub mod database;
-pub mod models;
+pub fn run_server(config: config::Config) {
+    // Assemble crate-private adapters and services here.
+    let _ = config;
+}
+
+pub fn run_cli(config: config::Config) {
+    // Assemble only the CLI dependencies here.
+    let _ = config;
+}
 
 // src/bin/server.rs - Server binary
-use my_project::{config, database, models};
+use my_project::{config, run_server};
 
 fn main() {
     let config = config::load();
-    let db = database::connect(&config);
-    // ...
+    run_server(config);
 }
 
 // src/bin/cli.rs - CLI binary
-use my_project::{config, models};
+use my_project::{config, run_cli};
 
 fn main() {
     let config = config::load();
-    // CLI logic using shared code
+    run_cli(config);
 }
 ```
 
+Each binary file or `src/bin/<name>/main.rs` is that binary's process entry point. Keep it to process-specific setup and invocation; a shared library startup function can assemble crate-private adapters while business rules remain in the shared library.
+
 ## Binary Naming
 
-| File Path | Binary Name |
-|-----------|-------------|
-| `src/main.rs` | `my-project` (crate name) |
-| `src/bin/server.rs` | `server` |
-| `src/bin/my-cli.rs` | `my-cli` |
-| `src/bin/server/main.rs` | `server` |
+| File Path                | Binary Name               |
+| ------------------------ | ------------------------- |
+| `src/main.rs`            | `my-project` (crate name) |
+| `src/bin/server.rs`      | `server`                  |
+| `src/bin/my-cli.rs`      | `my-cli`                  |
+| `src/bin/server/main.rs` | `server`                  |
 
 ## Explicit Configuration
 

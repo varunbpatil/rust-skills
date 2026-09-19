@@ -4,7 +4,12 @@
 
 ## Why It Matters
 
-Premature optimization wastes time, complicates code, and often targets the wrong bottlenecks. Most code isn't performance-critical; the hot 10% matters. Profile first, then optimize the actual bottlenecks with data-driven decisions.
+Speculative optimization can complicate code while targeting the wrong
+bottleneck. Establish a performance requirement, measure a representative
+release build, and optimize the resource or path that limits that requirement.
+Some design-level costs are hard to remove later, so use known complexity and
+capacity constraints during design; profiling complements rather than replaces
+sound algorithmic choices.
 
 ## Bad
 
@@ -23,7 +28,7 @@ fn sum(data: &[i32]) -> i32 {
 
 // Complex caching with no evidence it's needed
 lazy_static! {
-    static ref CACHE: RwLock<HashMap<String, Arc<Result>>> = 
+    static ref CACHE: RwLock<HashMap<String, Arc<Result>>> =
         RwLock::new(HashMap::new());
 }
 
@@ -74,7 +79,7 @@ cargo flamegraph --bin my_app -- --real-args
 # or
 cargo bench
 
-# 3. Identify hotspots (top 10% of time)
+# 3. Identify the paths and resources limiting the requirement
 
 # 4. Measure before optimizing
 # 5. Optimize ONE thing
@@ -84,17 +89,17 @@ cargo bench
 
 ## Optimization Principles
 
-| Do | Don't |
-|----|-------|
-| Profile first | Guess at bottlenecks |
-| Optimize hotspots | Optimize everything |
-| Measure improvement | Assume it's faster |
-| Keep it simple | Add complexity speculatively |
-| Trust the compiler | Outsmart the compiler |
+| Do                  | Don't                        |
+| ------------------- | ---------------------------- |
+| Profile first       | Guess at bottlenecks         |
+| Optimize hotspots   | Optimize everything          |
+| Measure improvement | Assume it's faster           |
+| Keep it simple      | Add complexity speculatively |
+| Trust the compiler  | Outsmart the compiler        |
 
 ## When to Optimize
 
-```rust
+```rust,ignore
 // AFTER profiling shows this is 40% of runtime
 #[inline]
 fn hot_function(data: &[u8]) -> u64 {
@@ -111,13 +116,13 @@ struct FormatterPool {
 
 ## Common Premature Optimizations
 
-| Premature | Reality |
-|-----------|---------|
-| `#[inline(always)]` everywhere | Compiler usually knows better |
-| `unsafe` for bounds check removal | Iterator does this safely |
-| Custom allocator | Default is usually fine |
-| Object pooling | Allocator is fast enough |
-| Manual SIMD | Auto-vectorization works |
+| Premature                         | Reality                       |
+| --------------------------------- | ----------------------------- |
+| `#[inline(always)]` everywhere    | Compiler usually knows better |
+| `unsafe` for bounds check removal | Iterator does this safely     |
+| Custom allocator                  | Default is usually fine       |
+| Object pooling                    | Allocator is fast enough      |
+| Manual SIMD                       | Auto-vectorization works      |
 
 ## Profile Tools
 
@@ -140,13 +145,13 @@ valgrind --tool=massif ./target/release/app
 
 ```rust
 /// Lookup table for fast character classification.
-/// 
+///
 /// # Performance
-/// 
+///
 /// Benchmarked with criterion (benchmarks/char_class.rs):
 /// - Table lookup: 2.3ns/op
 /// - Match statement: 8.7ns/op
-/// 
+///
 /// Justified for hot path in parser (called 10M+ times).
 static CHAR_CLASS: [CharClass; 256] = [/* ... */];
 ```

@@ -6,7 +6,19 @@
 
 Consistent formatting eliminates style debates and makes diffs cleaner. Running `cargo fmt --check` in CI ensures all code follows the same format. This catches formatting issues before merge, not after.
 
-## CI Configuration
+## Bad
+
+Formatting only in individual editors allows toolchain and configuration drift,
+and makes unrelated whitespace appear during review.
+
+```yaml
+# CI runs tests but never checks the repository's formatting contract.
+- run: cargo test --all-targets
+```
+
+## Good
+
+### CI Configuration
 
 ### GitHub Actions
 
@@ -50,7 +62,8 @@ Create `rustfmt.toml` for custom settings:
 
 ```toml
 # rustfmt.toml
-edition = "2021"
+edition = "2024"       # Parse source using Rust 2024 syntax
+style_edition = "2024" # Apply the Rust 2024 formatting style
 max_width = 100
 use_small_heuristics = "Max"
 imports_granularity = "Module"
@@ -60,14 +73,15 @@ reorder_imports = true
 
 ## Common Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `max_width` | 100 | Maximum line width |
-| `tab_spaces` | 4 | Spaces per indent |
-| `edition` | "2015" | Rust edition |
-| `use_small_heuristics` | "Default" | Layout heuristics |
-| `imports_granularity` | "Preserve" | Import grouping |
-| `group_imports` | "Preserve" | Import ordering |
+| Option                 | Default           | Description                              |
+| ---------------------- | ----------------- | ---------------------------------------- |
+| `max_width`            | 100               | Maximum line width                       |
+| `tab_spaces`           | 4                 | Spaces per indent                        |
+| `edition`              | Inferred by Cargo | Source-language edition used for parsing |
+| `style_edition`        | Follows `edition` | Formatting rules, independently pinnable |
+| `use_small_heuristics` | "Default"         | Layout heuristics                        |
+| `imports_granularity`  | "Preserve"        | Import grouping                          |
+| `group_imports`        | "Preserve"        | Import ordering                          |
 
 ## Running Locally
 
@@ -122,21 +136,21 @@ const MATRIX: [[i32; 4]; 4] = [
 ];
 ```
 
-## Nightly Features
+## Additional Configuration
 
-Some options require nightly:
+The Rustfmt 1.9 release shipped with Rust 1.98 supports these options on the
+stable channel. If the project formats with an older pinned toolchain, verify
+that toolchain's Rustfmt support before adding them:
 
 ```toml
-# rustfmt.toml (nightly only)
-unstable_features = true
+# rustfmt.toml
 imports_granularity = "Crate"
 wrap_comments = true
 format_code_in_doc_comments = true
 ```
 
 ```bash
-# Use nightly rustfmt
-cargo +nightly fmt
+cargo fmt
 ```
 
 ## IDE Integration

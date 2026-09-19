@@ -4,7 +4,11 @@
 
 ## Why It Matters
 
-Sometimes you need the first result from multiple futures—timeout vs operation, cancellation vs work, or competing alternatives. `tokio::select!` lets you race futures and handle whichever completes first, while properly cancelling the others.
+Sometimes you need the first result from multiple futures—timeout vs operation,
+cancellation vs work, or competing alternatives. `tokio::select!` handles the
+first ready branch and drops the other branch futures. Dropping a future is not
+transactional rollback: use cancellation-safe operations or arrange explicit
+cleanup for partially completed work.
 
 ## Bad
 
@@ -68,17 +72,17 @@ select! {
         // Handle result
         println!("Got: {:?}", result);
     }
-    
+
     // Can bind with pattern matching
     Ok(data) = fallible_operation() => {
         process(data);
     }
-    
+
     // Conditional branches with if guards
     msg = channel.recv(), if should_receive => {
         handle_message(msg);
     }
-    
+
     // else branch for when all futures are disabled
     else => {
         println!("All branches disabled");
@@ -102,8 +106,8 @@ async fn select_example() {
     }
 }
 
-// Futures are cancelled at their next .await point
-// For immediate cancellation, futures must be cancel-safe
+// Losing branch futures are dropped immediately. External operations they
+// started may continue, so every branch must be cancellation-safe.
 ```
 
 ## Biased Selection
@@ -113,7 +117,7 @@ async fn select_example() {
 // Use biased mode for deterministic priority
 select! {
     biased;  // Check branches in order
-    
+
     msg = high_priority.recv() => handle_high(msg),
     msg = low_priority.recv() => handle_low(msg),
 }
@@ -149,17 +153,17 @@ async fn event_loop(
 
 ## Racing Multiple of Same Type
 
-```rust
+```rust,ignore
 // Race multiple servers for fastest response
 async fn fastest_response(servers: &[String]) -> Result<Response> {
     let futures = servers.iter()
         .map(|s| fetch_from(s))
         .collect::<Vec<_>>();
-    
+
     // select! requires static branches, use select_all for dynamic
-    let (result, _index, _remaining) = 
+    let (result, _index, _remaining) =
         futures::future::select_all(futures).await;
-    
+
     result
 }
 ```
@@ -196,3 +200,4 @@ loop {
 - [async-cancellation-token](./async-cancellation-token.md) - Cancellation patterns
 - [async-join-parallel](./async-join-parallel.md) - All futures, not racing
 - [async-bounded-channel](./async-bounded-channel.md) - Channel operations in select
+- [async-cancel-safety](./async-cancel-safety.md) - Requirements for losing branches

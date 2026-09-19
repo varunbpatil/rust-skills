@@ -65,18 +65,23 @@ enum Value {
 
 ## Comparison Table
 
-| Strategy | Attribute | Wire form (Circle) | Tuple variant |
-|---|---|---|---|
-| Externally tagged | (default) | `{"Circle":{"radius":5}}` | yes |
-| Internally tagged | `#[serde(tag = "type")]` | `{"type":"Circle","radius":5}` | no |
-| Adjacently tagged | `#[serde(tag="t", content="c")]` | `{"t":"Circle","c":{"radius":5}}` | yes |
-| Untagged | `#[serde(untagged)]` | `{"radius":5}` | yes |
+| Strategy          | Attribute                        | Wire form (Circle)                | Tuple variant |
+| ----------------- | -------------------------------- | --------------------------------- | ------------- |
+| Externally tagged | (default)                        | `{"Circle":{"radius":5}}`         | yes           |
+| Internally tagged | `#[serde(tag = "type")]`         | `{"type":"Circle","radius":5}`    | no            |
+| Adjacently tagged | `#[serde(tag="t", content="c")]` | `{"t":"Circle","c":{"radius":5}}` | yes           |
+| Untagged          | `#[serde(untagged)]`             | `{"radius":5}`                    | yes           |
 
 ## Caveats
 
 - **Untagged** deserializes by trying each variant in declaration order; it is slower, can silently pick the wrong variant, and produces generic error messages. Reserve it for small, structurally distinct sets (numbers vs strings).
 - **Internally tagged** cannot represent tuple variants or newtype variants wrapping primitives/vecs — use adjacently tagged instead.
 - All variants in an internally tagged enum must serialize as maps (structs or `HashMap`).
+- For a fieldless enum whose external format is an integer discriminant,
+  [`serde_repr`](https://crates.io/crates/serde_repr) can derive numeric
+  serialization from an explicit `#[repr(...)]`. Treat each discriminant as a
+  wire-format compatibility commitment; unknown numeric values still require a
+  deliberate fallback or custom deserializer.
 
 ## See Also
 

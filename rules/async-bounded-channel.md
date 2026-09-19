@@ -18,7 +18,10 @@ let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 tokio::spawn(async move {
     loop {
         let msg = generate_message();
-        tx.send(msg).unwrap();  // Never blocks, never fails (until OOM)
+        // Synchronous and unbounded, but still fails when the receiver closes.
+        if tx.send(msg).is_err() {
+            break;
+        }
     }
 });
 
@@ -72,7 +75,7 @@ let (tx, rx) = mpsc::channel::<Item>(1_000_000);
 // Small items, high throughput
 let (tx, rx) = mpsc::channel::<u64>(1000);
 
-// Large items, moderate throughput  
+// Large items, moderate throughput
 let (tx, rx) = mpsc::channel::<LargeStruct>(100);
 
 // Low latency requirement
@@ -136,11 +139,11 @@ let (tx, rx) = watch::channel::<State>(initial);
 
 ## Worker Pool Pattern
 
-```rust
+```rust,ignore
 async fn process_with_workers(items: Vec<Item>) -> Vec<Result> {
     let (tx, rx) = mpsc::channel(100);
     let rx = Arc::new(Mutex::new(rx));
-    
+
     // Spawn worker pool
     let workers: Vec<_> = (0..4).map(|_| {
         let rx = rx.clone();
@@ -157,13 +160,13 @@ async fn process_with_workers(items: Vec<Item>) -> Vec<Result> {
             }
         })
     }).collect();
-    
+
     // Send items
     for item in items {
         tx.send(item).await.unwrap();
     }
     drop(tx);  // Signal workers to stop
-    
+
     futures::future::join_all(workers).await;
 }
 ```
@@ -173,3 +176,4 @@ async fn process_with_workers(items: Vec<Item>) -> Vec<Result> {
 - [async-mpsc-queue](./async-mpsc-queue.md) - Multi-producer patterns
 - [async-oneshot-response](./async-oneshot-response.md) - Request-response pattern
 - [async-watch-latest](./async-watch-latest.md) - Latest-value broadcasting
+- [security-resource-limits](./security-resource-limits.md) - bound untrusted work and external waits

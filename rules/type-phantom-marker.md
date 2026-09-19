@@ -24,7 +24,7 @@ struct Handle<T> {
 
 ## Good
 
-```rust
+```rust,ignore
 use std::marker::PhantomData;
 
 struct Handle<T> {
@@ -60,6 +60,7 @@ process_user(order_handle);  // Error: expected Handle<User>, found Handle<Order
 use std::marker::PhantomData;
 
 // Owns T conceptually (like Box<T>)
+/// Owns the allocation at `ptr`, which must contain one initialized `T`.
 struct Container<T> {
     ptr: *mut T,
     _marker: PhantomData<T>,  // Acts like we own a T
@@ -68,6 +69,8 @@ struct Container<T> {
 // Drop will be called on T when Container drops
 impl<T> Drop for Container<T> {
     fn drop(&mut self) {
+        // SAFETY: the documented type invariant gives this Container unique
+        // ownership of one initialized T at ptr.
         unsafe {
             std::ptr::drop_in_place(self.ptr);
         }
@@ -81,6 +84,7 @@ impl<T> Drop for Container<T> {
 use std::marker::PhantomData;
 
 // Borrows T for lifetime 'a
+/// `ptr` is valid and aligned for shared access for all of `'a`.
 struct Ref<'a, T> {
     ptr: *const T,
     _marker: PhantomData<&'a T>,  // Acts like &'a T
@@ -89,6 +93,7 @@ struct Ref<'a, T> {
 // Compiler tracks lifetime correctly
 impl<'a, T> Ref<'a, T> {
     fn get(&self) -> &'a T {
+        // SAFETY: the documented type invariant guarantees validity for `'a`.
         unsafe { &*self.ptr }
     }
 }
@@ -112,7 +117,7 @@ impl Door<Unlocked> {
         println!("Locking...");
         Door { _state: PhantomData }
     }
-    
+
     fn open(&self) {
         println!("Opening...");
     }
@@ -123,7 +128,7 @@ impl Door<Locked> {
         println!("Unlocking...");
         Door { _state: PhantomData }
     }
-    
+
     // Can't call open() on Locked door - method doesn't exist
 }
 

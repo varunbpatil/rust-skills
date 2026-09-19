@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract ```rust blocks from ../rules/*.md into cargo examples for compile checking.
+"""Extract fenced Rust blocks from ../rules/*.md into cargo examples for compile checking.
 
 Each candidate block becomes examples/<name>.rs. Blocks that are intentionally
 non-compiling or unresolvable are skipped:
@@ -12,7 +12,10 @@ non-compiling or unresolvable are skipped:
 Fragments (snippets that reference undefined domain symbols) are still emitted;
 the analyzer separates "only-resolution-errors" (fragments) from real bugs.
 """
-import re, json, pathlib
+
+import json
+import pathlib
+import re
 
 HERE = pathlib.Path(__file__).resolve().parent
 RULES = (HERE.parent / "rules").resolve()
@@ -21,12 +24,18 @@ OUT.mkdir(exist_ok=True)
 for f in OUT.glob("*.rs"):
     f.unlink()
 
-placeholder = re.compile(r'\b(my_crate|mycrate|mylib|my_app|my_project|my_lib|mycrate_derive)\b')
-placeholder_use = re.compile(r'\buse\s+(model|transport|service|internal|app|domain)\b')
+placeholder = re.compile(
+    r"\b(my_crate|mycrate|mylib|my_app|my_project|my_lib|mycrate_derive)\b"
+)
+placeholder_use = re.compile(r"\buse\s+(model|transport|service|internal|app|domain)\b")
+inline_module = re.compile(r"^\s*mod\s+[A-Za-z_]\w*\s*\{", re.MULTILINE)
 
-HEADER = ("#![allow(unused, dead_code, unreachable_code, unused_imports, "
-          "unused_variables, unused_mut, unused_assignments, unused_macros, "
-          "non_local_definitions)]\n")
+HEADER = (
+    "#![allow(unused, dead_code, unreachable_code, unused_imports, "
+    "unused_variables, unused_mut, unused_assignments, unused_macros, "
+    "non_local_definitions)]\n"
+)
+
 
 def is_candidate(block: str, section: str) -> bool:
     if section.strip().lower() == "bad":
@@ -35,50 +44,98 @@ def is_candidate(block: str, section: str) -> bool:
         return False
     if "proc_macro" in block:
         return False
-    if placeholder.search(block) or placeholder_use.search(block):
+    if placeholder.search(block):
+        return False
+    if placeholder_use.search(block) and not inline_module.search(block):
         return False
     for ln in block.splitlines():
         if ln.strip() == "...":
             return False
     return True
 
+
 manifest = {}
 idx = 0
+rust_blocks = 0
+ignored_blocks = 0
 for md in sorted(RULES.glob("*.md")):
     lines = md.read_text(encoding="utf-8").splitlines()
     section = ""
     i = 0
     while i < len(lines):
         line = lines[i]
-        m = re.match(r'^#{2,}\s+(.*)', line)
+        # Longer Markdown fences are commonly used to demonstrate fenced code
+        # blocks. Skip non-Rust outer fences as a unit so an embedded literal
+        # ```rust example is not mistaken for a repository example.
+        outer = re.fullmatch(r"(?P<ticks>`{3,})(?P<info>.*)", line.strip())
+        if outer and not outer.group("info").startswith("rust"):
+            fence_len = len(outer.group("ticks"))
+            j = i + 1
+            closing = re.compile(rf"`{{{fence_len},}}\s*")
+            while j < len(lines) and not closing.fullmatch(lines[j].strip()):
+                j += 1
+            i = j + 1
+            continue
+        m = re.match(r"^#{2,}\s+(.*)", line)
         if m:
             section = m.group(1).strip()
-        if line.strip() == "```rust":
+        fence = re.fullmatch(
+            r"(?P<ticks>`{3,})rust(?P<attrs>(?:,[a-z_]+)*)", line.strip()
+        )
+        if fence:
+            rust_blocks += 1
+            attrs = {a for a in fence.group("attrs").split(",") if a}
+            fence_len = len(fence.group("ticks"))
             start = i + 1
             j = start
-            while j < len(lines) and lines[j].strip() != "```":
+            closing = re.compile(rf"`{{{fence_len},}}\s*")
+            while j < len(lines) and not closing.fullmatch(lines[j].strip()):
                 j += 1
             block = "\n".join(lines[start:j])
-            if is_candidate(block, section):
+            if "ignore" in attrs:
+                ignored_blocks += 1
+            elif is_candidate(block, section):
                 name = f"{md.stem.replace('-', '_')}__{idx}"
-                has_main = re.search(r'\bfn\s+main\s*\(', block) is not None
+                has_main = re.search(r"\bfn\s+main\s*\(", block) is not None
                 has_inner_attr = "#![" in block
                 # A block that defines a module is item-level: compile it at the
                 # crate root so `mod m { use super::* }` resolves correctly.
-                has_mod = re.search(r'(?m)^\s*(pub(\([^)]*\))?\s+)?mod\s+\w', block) is not None
+                has_mod = (
+                    re.search(r"(?m)^\s*(pub(\([^)]*\))?\s+)?mod\s+\w", block)
+                    is not None
+                )
                 if has_main:
                     content = HEADER + block + "\n"
                 elif has_inner_attr or has_mod:
                     content = HEADER + block + "\nfn main() {}\n"
                 else:
-                    content = (HEADER +
-                               "async fn __ex() -> Result<(), Box<dyn std::error::Error>> {\n" +
-                               block + "\n;\nOk(())\n}\nfn main() {}\n")
+                    content = (
+                        HEADER
+                        + "async fn __ex() -> Result<(), Box<dyn std::error::Error>> {\n"
+                        + block
+                        + "\n;\nOk(())\n}\nfn main() {}\n"
+                    )
                 (OUT / f"{name}.rs").write_text(content, encoding="utf-8")
-                manifest[name] = {"file": md.name, "line": start + 1, "section": section}
+                manifest[name] = {
+                    "file": md.name,
+                    "line": start + 1,
+                    "section": section,
+                }
             idx += 1
             i = j
         i += 1
 
 (HERE / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-print(f"generated {len(manifest)} example files (scanned {idx} rust blocks)")
+(HERE / "generation-stats.json").write_text(
+    json.dumps(
+        {
+            "rust_blocks": rust_blocks,
+            "ignored_blocks": ignored_blocks,
+        }
+    ),
+    encoding="utf-8",
+)
+print(
+    f"generated {len(manifest)} example files (scanned {rust_blocks} Rust blocks; "
+    f"{ignored_blocks} explicitly ignored)"
+)

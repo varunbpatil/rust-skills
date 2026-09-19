@@ -4,7 +4,12 @@
 
 ## Why It Matters
 
-`Mutex<T>` allows only one thread to access data at a time, even for reads. `RwLock<T>` allows multiple concurrent readers OR one exclusive writer. For read-heavy workloads, this dramatically improves throughput by eliminating unnecessary serialization of read operations.
+`Mutex<T>` allows only one thread to access data at a time, even for reads.
+`RwLock<T>` allows multiple concurrent readers or one exclusive writer. For
+read-heavy workloads with sufficiently long critical sections, this can improve
+throughput. Reader bookkeeping, cache-line contention, scheduling policy, and
+short critical sections can also make an `RwLock` slower than a `Mutex`, so
+benchmark the actual access pattern.
 
 ## Bad
 
@@ -46,7 +51,9 @@ fn update_setting(config: &RwLock<Config>, key: &str, value: &str) {
 
 ## parking_lot::RwLock
 
-Prefer `parking_lot::RwLock` for better performance:
+Consider `parking_lot::RwLock` when its smaller locks, non-poisoning API,
+upgradeable guards, or fairness controls fit the application. Benchmark it
+against the standard lock under the target contention pattern:
 
 ```rust
 use parking_lot::RwLock;
@@ -72,24 +79,42 @@ if upgradeable.get("key").is_none() {
 
 RwLock has overhead for tracking readers. It can be slower than Mutex when:
 
-| Scenario | Better Choice |
-|----------|---------------|
-| Writes are frequent (>20% of operations) | `Mutex` |
-| Lock held very briefly | `Mutex` |
-| Single-threaded | `RefCell` |
-| Reads dominate, lock held longer | `RwLock` |
+| Scenario                               | Better Choice            |
+| -------------------------------------- | ------------------------ |
+| Writes contend frequently with readers | Benchmark; often `Mutex` |
+| Lock held very briefly                 | `Mutex`                  |
+| Single-threaded                        | `RefCell`                |
+| Reads dominate, lock held longer       | `RwLock`                 |
 
 ## Write Starvation
 
-Standard `RwLock` may starve writers if readers are continuous. `parking_lot::RwLock` is fair by default.
+The standard lock's priority policy is platform-dependent. `parking_lot` uses
+eventual fairness and also offers explicit fair unlock operations; neither
+choice removes the need to evaluate latency under the target workload.
 
 ```rust
-// parking_lot is writer-fair, preventing starvation
+// parking_lot provides eventual fairness and explicit `unlock_fair` APIs.
 use parking_lot::RwLock;
 
-// Or use std with explicit fairness (nightly)
-// #![feature(rwlock_downgrade)]
+// `std` can atomically downgrade a write guard to a read guard (stable since
+// Rust 1.92), preventing another writer from intervening during that
+// transition. Downgrading is not a general fairness guarantee.
+use std::sync::{RwLock as StdRwLock, RwLockWriteGuard};
+
+let lock = StdRwLock::new(1);
+let write = lock.write().expect("lock should not be poisoned");
+let read = RwLockWriteGuard::downgrade(write);
+assert_eq!(*read, 1);
 ```
+
+## Immutable Snapshots
+
+When readers only need the current immutable value and writers replace the
+whole snapshot, [`arc-swap`](https://crates.io/crates/arc-swap) can avoid a read
+lock. Readers cheaply load an `Arc<T>` while writers atomically publish another
+one. It does not replace an `RwLock` for in-place mutation or invariants spanning
+several independently updated values, and retained reader guards can delay
+reclamation of older snapshots.
 
 ## Real-World Pattern: Cached Computation
 
@@ -107,7 +132,7 @@ impl CachedData {
         if let Some(cached) = self.cache.read().as_ref() {
             return cached.clone();
         }
-        
+
         // Slow path: compute and cache
         let result = compute_expensive();
         *self.cache.write() = Some(result.clone());

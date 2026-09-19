@@ -4,9 +4,28 @@
 
 ## Why It Matters
 
-Unit tests should isolate the code under test from external dependencies (databases, APIs, file systems). Mockall generates mock implementations of traits, allowing you to control and verify behavior without real dependencies.
+Focused unit tests can isolate slow or nondeterministic boundaries such as
+databases and remote APIs. Mockall generates controllable trait implementations,
+but mocking every internal collaborator couples tests to implementation details;
+prefer simple fakes or integration tests when they express behavior more clearly.
 
-## Setup
+## Bad
+
+Mocking every internal function makes harmless refactoring break tests even when
+observable behavior is unchanged.
+
+```rust
+#[automock]
+trait EveryPrivateStep {
+    fn parse(&self);
+    fn normalize(&self);
+    fn store(&self);
+}
+```
+
+## Good
+
+### Setup
 
 ```toml
 # Cargo.toml
@@ -29,18 +48,18 @@ trait Database {
 mod tests {
     use super::*;
     use mockall::predicate::*;
-    
+
     #[test]
     fn test_get_user() {
         let mut mock = MockDatabase::new();
-        
+
         mock.expect_get_user()
             .with(eq(42))
             .returning(|_| Some(User { id: 42, name: "Alice".into() }));
-        
+
         let service = UserService::new(mock);
         let user = service.find_user(42);
-        
+
         assert_eq!(user.unwrap().name, "Alice");
     }
 }
@@ -52,26 +71,26 @@ mod tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_save_calls() {
         let mut mock = MockDatabase::new();
-        
+
         // Expect exactly one call
         mock.expect_save_user()
             .times(1)
             .returning(|_| Ok(()));
-        
+
         // Expect call with specific argument
         mock.expect_get_user()
             .with(eq(42))
             .returning(|_| Some(User::default()));
-        
+
         // Expect multiple calls
         mock.expect_get_user()
             .times(3..)  // At least 3 times
             .returning(|_| None);
-        
+
         // Expectations are verified on drop
     }
 }
@@ -106,17 +125,17 @@ use mockall::Sequence;
 fn test_ordered_calls() {
     let mut seq = Sequence::new();
     let mut mock = MockDatabase::new();
-    
+
     mock.expect_connect()
         .times(1)
         .in_sequence(&mut seq)
         .returning(|| Ok(()));
-    
+
     mock.expect_query()
         .times(1)
         .in_sequence(&mut seq)
         .returning(|_| Ok(vec![]));
-    
+
     mock.expect_disconnect()
         .times(1)
         .in_sequence(&mut seq)
@@ -182,10 +201,10 @@ trait AsyncDatabase {
 #[tokio::test]
 async fn test_async() {
     let mut mock = MockAsyncDatabase::new();
-    
+
     mock.expect_fetch()
         .returning(|_| Some(Data::default()));
-    
+
     let result = mock.fetch(1).await;
     assert!(result.is_some());
 }

@@ -12,9 +12,9 @@ Awaiting futures sequentially takes the sum of their durations. `join!` runs fut
 async fn fetch_data() -> (User, Posts, Comments) {
     // Sequential: 300ms total (100 + 100 + 100)
     let user = fetch_user().await;        // 100ms
-    let posts = fetch_posts().await;      // 100ms  
+    let posts = fetch_posts().await;      // 100ms
     let comments = fetch_comments().await; // 100ms
-    
+
     (user, posts, comments)
 }
 
@@ -22,14 +22,14 @@ async fn read_configs() -> Result<(Config, Settings)> {
     // Sequential: 20ms + 20ms = 40ms
     let config = fs::read_to_string("config.toml").await?;
     let settings = fs::read_to_string("settings.json").await?;
-    
+
     Ok((parse_config(&config)?, parse_settings(&settings)?))
 }
 ```
 
 ## Good
 
-```rust
+```rust,ignore
 use tokio::join;
 
 async fn fetch_data() -> (User, Posts, Comments) {
@@ -39,7 +39,7 @@ async fn fetch_data() -> (User, Posts, Comments) {
         fetch_posts(),
         fetch_comments(),
     );
-    
+
     (user, posts, comments)
 }
 
@@ -51,7 +51,7 @@ async fn read_configs() -> Result<(Config, Settings)> {
         fs::read_to_string("config.toml"),
         fs::read_to_string("settings.json"),
     )?;
-    
+
     Ok((parse_config(&config_str)?, parse_settings(&settings_str)?))
 }
 ```
@@ -70,14 +70,14 @@ let (a, b, c) = try_join!(fallible_a, fallible_b, fallible_c)?;
 
 ## futures::join_all for Dynamic Collections
 
-```rust
+```rust,ignore
 use futures::future::join_all;
 
 async fn fetch_all_users(ids: &[u64]) -> Vec<User> {
     let futures: Vec<_> = ids.iter()
         .map(|id| fetch_user(*id))
         .collect();
-    
+
     join_all(futures).await
 }
 
@@ -88,14 +88,14 @@ async fn fetch_all_users(ids: &[u64]) -> Result<Vec<User>> {
     let futures: Vec<_> = ids.iter()
         .map(|id| fetch_user(*id))
         .collect();
-    
+
     try_join_all(futures).await
 }
 ```
 
 ## Limiting Concurrency
 
-```rust
+```rust,ignore
 use futures::stream::{self, StreamExt};
 
 async fn fetch_with_limit(ids: &[u64]) -> Vec<Result<User>> {
@@ -111,7 +111,7 @@ use tokio::sync::Semaphore;
 
 async fn fetch_with_semaphore(ids: &[u64]) -> Vec<User> {
     let semaphore = Arc::new(Semaphore::new(10));
-    
+
     let futures: Vec<_> = ids.iter().map(|id| {
         let semaphore = semaphore.clone();
         async move {
@@ -119,14 +119,14 @@ async fn fetch_with_semaphore(ids: &[u64]) -> Vec<User> {
             fetch_user(*id).await
         }
     }).collect();
-    
+
     join_all(futures).await
 }
 ```
 
 ## When NOT to Use join!
 
-```rust
+```rust,ignore
 // ❌ Dependent futures - must be sequential
 async fn create_and_populate() -> Result<()> {
     let db = create_database().await?;   // Must complete first

@@ -15,22 +15,27 @@ cd checks
 python3 gen.py                                              # extract blocks -> examples/
 cargo check --examples --keep-going --message-format=json > check.json
 python3 analyze.py check.json                               # classify results
+python3 analyze.py check.json --check-quality quality-baseline.json
 python3 analyze.py check.json --check-baseline baseline.txt # CI gate: fail on NEW suspects
 ```
 
 Both run in CI (`.github/workflows/ci.yml`): `validate` (Python only) and
-`examples` (pinned to Rust 1.95.0, the toolchain `baseline.txt` was generated on).
+`examples` (pinned to Rust 1.98.1, the toolchain `baseline.txt` was generated on).
 
 ## Updating the baseline
 
-`baseline.txt` lists the currently-accepted suspects (fragments/pseudocode the
-heuristics can't auto-classify). The CI gate fails only on signatures *not* in
-it. After intentionally adding/changing examples, regenerate it on the pinned
-toolchain and review the diff:
+`baseline.txt` lists any explicitly accepted suspects; it is currently empty.
+`quality-baseline.json` is a second, directional ratchet: Rust blocks, checked
+examples, and clean examples may not decrease, while explicitly ignored blocks,
+fragments, extraction artifacts, low-signal failures, and suspects may not
+increase. Improve its numbers whenever examples are made self-contained. After
+an intentional change, regenerate the relevant file on the pinned toolchain and
+review the diff:
 
 ```bash
-rustup run 1.95.0 cargo check --examples --keep-going --message-format=json > check.json
+rustup run 1.98.1 cargo check --examples --keep-going --message-format=json > check.json
 python3 analyze.py check.json --emit-baseline > baseline.txt
+python3 analyze.py check.json --emit-quality > quality-baseline.json
 ```
 
 When bumping the pinned toolchain in `ci.yml`, regenerate `baseline.txt` on the
@@ -42,22 +47,32 @@ same version in the same commit.
 fragments in an `async fn -> Result<...>` so `?` and `.await` type-check. It
 skips blocks that can't compile standalone by design: `## Bad` anti-patterns,
 nightly `#![feature]` gates, procedural-macro code, placeholder crate names
-(`my_crate`, …), and bare `...` pseudocode.
+(`my_crate`, …), and bare `...` pseudocode. It compiles `rust,no_run` blocks
+but ignores Rust fences nested inside longer Markdown demonstration fences.
+
+`validate.py` also enforces explicit `Bad`/`Good` sections, rejects repeated
+rule summaries, repeated Rust example blocks, Rust fences that hide all Rust
+syntax behind ordinary comments, self-links, and duplicate `See Also` targets,
+and checks the article-by-article supplemental-source manifest in
+`SOURCE_COVERAGE.md`. Documentation-comment demonstrations (`///` and `//!`)
+remain valid; use a non-Rust fence for explanatory comments that are not meant
+to compile.
 
 `analyze.py` buckets each failing example by compiler error code:
 
-- **fragment** — every error is name resolution (undefined symbol/crate). These
+- **fragment** — every error is name resolution (undefined domain symbol/crate). These
   reference helpers defined elsewhere in the rule; expected, ignored.
 - **artifact** — caused by extraction (a `&self` method body wrapped as a free
   fn, pseudocode `...`/`???` tokens, dangling doc comments). Not real bugs.
 - **low** — only "type annotations needed"; compiles in the rule's real context.
 - **SUSPECT** — anything else (type mismatch, no-method, bad syntax, wrong
-  arity, missing trait impl). These are the ones to review and fix.
+  arity, missing trait impl, unknown field, unstable API). These are the ones to
+  review and fix. In particular, E0561 and E0658 are never treated as fragments.
 
 ## Notes
 
-- Run on Rust ≥ 1.95: some examples use APIs stabilized in 1.95 (e.g. the
-  `MaybeUninit` array `From` conversions) and will spuriously fail on older
-  toolchains.
-- Generated files (`examples/`, `*.json`, `manifest.json`, `target/`) are
-  gitignored; only the source (`gen.py`, `analyze.py`, `Cargo.toml`) is tracked.
+- Run on the pinned Rust 1.98.1 toolchain; examples intentionally target the
+  repository's documented current stable version.
+- Generated files (`examples/`, `check*.json`, `manifest.json`,
+  `generation-stats.json`, `target/`) are gitignored. The directional quality
+  baseline is tracked so CI can enforce the current floor and ceilings.

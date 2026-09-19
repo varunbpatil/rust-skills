@@ -4,7 +4,11 @@
 
 ## Why It Matters
 
-`#[repr(transparent)]` guarantees a newtype has the same memory layout as its inner type. This is essential for FFI where you need type safety in Rust but must match C ABI layouts. Without it, the compiler may add padding or change layout.
+For a struct with one non-zero-sized field (plus permitted 1-aligned zero-sized
+fields), `#[repr(transparent)]` gives the wrapper the layout and ABI of that
+field. Use it when FFI or another documented unsafe contract relies on that
+relationship. It does not by itself make an inner type FFI-safe or establish
+pointer validity, provenance, ownership, or aliasing.
 
 ## Bad
 
@@ -13,7 +17,7 @@
 struct Handle(u64);
 
 // Passing to C code might fail
-extern "C" {
+unsafe extern "C" {
     fn process_handle(h: Handle);  // May not work correctly
 }
 
@@ -29,7 +33,7 @@ struct SafePointer(*mut c_void);
 struct Handle(u64);
 
 // Safe for FFI
-extern "C" {
+unsafe extern "C" {
     fn process_handle(h: Handle);  // Works - same layout as u64
 }
 
@@ -100,11 +104,11 @@ assert_eq!(size_of::<Option<NonZeroHandle>>(), size_of::<u64>());
 ```rust
 mod ffi {
     use std::os::raw::c_int;
-    
+
     #[repr(transparent)]
     pub struct FileDescriptor(c_int);
-    
-    extern "C" {
+
+    unsafe extern "C" {
         pub fn open(path: *const i8, flags: c_int) -> FileDescriptor;
         pub fn close(fd: FileDescriptor) -> c_int;
         pub fn read(fd: FileDescriptor, buf: *mut u8, len: usize) -> isize;
@@ -128,13 +132,13 @@ impl File {
 
 ## When to Use
 
-| Scenario | Use `#[repr(transparent)]`? |
-|----------|----------------------------|
-| FFI newtype wrappers | Yes |
-| Type-safe handles | Yes |
-| NonZero optimization | Yes |
-| Pure Rust newtypes | Optional (doesn't hurt) |
-| Multi-field structs | N/A (only for single-field) |
+| Scenario                    | Use `#[repr(transparent)]`?                            |
+| --------------------------- | ------------------------------------------------------ |
+| FFI newtype wrappers        | Yes                                                    |
+| Pure-Rust type-safe handles | Usually no; only if layout is part of the contract     |
+| NonZero optimization        | Yes                                                    |
+| Pure Rust newtypes          | Usually omit to avoid an unnecessary layout commitment |
+| Multi-field structs         | N/A (only for single-field)                            |
 
 ## See Also
 

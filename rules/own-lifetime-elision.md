@@ -47,21 +47,23 @@ impl Display for Wrapper<'_> {
 ## The Three Elision Rules
 
 1. **Each input reference gets its own lifetime:**
-   ```rust
-   fn foo(x: &str, y: &str) 
+
+   ```rust,ignore
+   fn foo(x: &str, y: &str)
    // becomes
    fn foo<'a, 'b>(x: &'a str, y: &'b str)
    ```
 
 2. **One input reference → output gets same lifetime:**
-   ```rust
+
+   ```rust,ignore
    fn foo(x: &str) -> &str
-   // becomes  
+   // becomes
    fn foo<'a>(x: &'a str) -> &'a str
    ```
 
 3. **Method with `&self`/`&mut self` → output gets self's lifetime:**
-   ```rust
+   ```rust,ignore
    fn foo(&self, x: &str) -> &str
    // becomes
    fn foo<'a, 'b>(&'a self, x: &'b str) -> &'a str
@@ -113,7 +115,7 @@ fn process(data: &impl AsRef<str>) -> Cow<'_, str> { ... }
 
 ## Common Patterns
 
-```rust
+```rust,ignore
 // ✅ Elision works
 fn trim(s: &str) -> &str { s.trim() }
 fn first(v: &[i32]) -> Option<&i32> { v.first() }

@@ -4,7 +4,10 @@
 
 ## Why It Matters
 
-`.clone()` allocates memory and copies data. When you only need to read data, borrowing (`&T`) is free. Excessive cloning wastes memory, CPU cycles, and often indicates misunderstanding of ownership.
+`.clone()` duplicates a value. Its cost ranges from a few copied bytes to heap
+allocation and a deep copy, depending on the type. When a callee only needs to
+read data, borrowing usually avoids that work and expresses the requirement
+more accurately. Clone when independent ownership is actually required.
 
 ## Bad
 
@@ -85,13 +88,13 @@ thread::spawn(move || use_data(shared));
 
 ## Alternatives to Clone
 
-| Instead of | Use |
-|------------|-----|
-| `s.clone()` for reading | `&s` |
-| `vec.clone()` for iteration | `&vec` or `vec.iter()` |
-| `Clone` for shared ownership | `Arc<T>` |
-| Clone in hot loop | Move outside loop |
-| `s.to_string()` from `&str` | Accept `&str` if possible |
+| Instead of                   | Use                       |
+| ---------------------------- | ------------------------- |
+| `s.clone()` for reading      | `&s`                      |
+| `vec.clone()` for iteration  | `&vec` or `vec.iter()`    |
+| `Clone` for shared ownership | `Arc<T>`                  |
+| Clone in hot loop            | Move outside loop         |
+| `s.to_string()` from `&str`  | Accept `&str` if possible |
 
 ## Pattern: Clone on Write
 

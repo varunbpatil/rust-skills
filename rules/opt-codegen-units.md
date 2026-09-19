@@ -1,10 +1,14 @@
 # opt-codegen-units
 
-> Set `codegen-units = 1` for maximum optimization in release builds
+> Trade release build parallelism for optimization with fewer codegen units
 
 ## Why It Matters
 
-By default, Cargo splits code into multiple codegen units for parallel compilation. This speeds up builds but prevents some cross-unit optimizations. Setting `codegen-units = 1` allows LLVM to optimize across the entire crate, potentially improving runtime performance by 5-20% at the cost of slower builds.
+Cargo splits a crate into multiple codegen units (CGUs) so LLVM can compile them
+in parallel. Fewer CGUs give each LLVM invocation a wider view but reduce build
+parallelism. `codegen-units = 1` is a useful configuration to benchmark for a
+final performance-sensitive binary, not a universal production default; LTO,
+incremental compilation, dependencies, and workload can change the result.
 
 ## Bad
 
@@ -18,20 +22,20 @@ By default, Cargo splits code into multiple codegen units for parallel compilati
 ## Good
 
 ```toml
-# Cargo.toml - optimized for runtime performance
+# Cargo.toml - a configuration to benchmark
 [profile.release]
 codegen-units = 1  # Single unit = better optimization
 lto = true         # Link-time optimization
-opt-level = 3      # Maximum optimization
+opt-level = 3      # Aggressive speed optimization
 ```
 
 ## What codegen-units Affects
 
-| Codegen Units | Compile Time | Runtime Performance | Memory Use |
-|---------------|--------------|---------------------|------------|
-| 16 (default)  | Faster       | Baseline            | Lower      |
-| 4-8           | Moderate     | Slightly better     | Moderate   |
-| 1             | Slower       | Best                | Higher     |
+| Codegen Units | Typical tradeoff                                                     |
+| ------------- | -------------------------------------------------------------------- |
+| More          | More LLVM parallelism; less optimization visibility per unit         |
+| Fewer         | Less parallelism; more visibility per unit                           |
+| 1             | Widest within-crate view, but not guaranteed best end-to-end results |
 
 ## How It Works
 
@@ -45,8 +49,7 @@ opt-level = 3      # Maximum optimization
 // - Entire crate in single unit
 // - LLVM sees all code at once
 // - Can inline across module boundaries
-// - Better dead code elimination
-// - Better constant propagation
+// - May enable better dead-code elimination and constant propagation
 ```
 
 ## Full Release Profile
@@ -76,12 +79,11 @@ inherits = "release"
 ```bash
 # Default release build (fast compile)
 cargo build --release
-# Time: ~30s
 
 # Optimized release build (slow compile, fast runtime)
 # With codegen-units = 1, lto = "fat"
 cargo build --release
-# Time: ~2-5min, but potentially 10-20% faster binary
+# Compare wall-clock build time, artifact size, and representative benchmarks.
 ```
 
 ## Per-Profile Configuration
@@ -113,10 +115,8 @@ lto = "fat"
 // - When runtime performance isn't critical
 
 // codegen-units = 1
-// - Production deployments
-// - Performance-critical applications
-// - Final releases
-// - Benchmarking
+// - A candidate for performance-critical final artifacts
+// - One configuration to include in benchmarking
 ```
 
 ## Measuring Impact

@@ -1,10 +1,15 @@
 # async-no-lock-await
 
-> Never hold `Mutex`/`RwLock` across `.await`
+> Avoid holding locks across `.await`; use async locks when the critical section must await
 
 ## Why It Matters
 
-Holding a lock across an `.await` point can cause deadlocks and severely hurt performance. The task may be suspended while holding the lock, blocking all other tasks waiting for it - potentially indefinitely.
+Holding a lock across an `.await` point lengthens the critical section by an
+unbounded amount and can cause contention or deadlock. A synchronous lock guard
+should not cross `.await`. Tokio's asynchronous locks are specifically capable
+of doing so, and this can be appropriate when a protected protocol or I/O
+resource must remain exclusive across several awaits. Keep even those critical
+sections deliberate and as short as the invariant permits.
 
 ## Bad
 
@@ -13,10 +18,10 @@ use tokio::sync::Mutex;
 
 async fn bad_update(state: &Mutex<State>) {
     let mut guard = state.lock().await;
-    
+
     // BAD: Lock held across await!
     let data = fetch_from_network().await;
-    
+
     guard.value = data;
 }  // Lock finally released
 
@@ -31,7 +36,7 @@ use tokio::sync::Mutex;
 async fn good_update(state: &Mutex<State>) {
     // Fetch data BEFORE taking the lock
     let data = fetch_from_network().await;
-    
+
     // Lock only for the quick update
     let mut guard = state.lock().await;
     guard.value = data;
@@ -44,10 +49,10 @@ async fn good_update_v2(state: &Mutex<State>) {
         let guard = state.lock().await;
         guard.id.clone()
     };  // Lock released!
-    
+
     // Do async work without lock
     let data = fetch_by_id(id).await;
-    
+
     // Quick update
     state.lock().await.value = data;
 }
@@ -81,7 +86,7 @@ async fn pattern_clone(state: &Mutex<State>) {
 // Pattern 2: Compute closure, apply
 async fn pattern_closure(state: &Mutex<State>) {
     let update = compute_update().await;
-    
+
     state.lock().await.apply(update);
 }
 
@@ -111,15 +116,15 @@ async fn state_manager(
 use tokio::sync::RwLock;
 
 async fn read_heavy(state: &RwLock<State>) {
-    // Multiple readers OK, but still don't hold across await
+    // Multiple readers are fine; release the guard before unrelated awaits.
     let value = {
         let guard = state.read().await;
         guard.value.clone()
     };
-    
+
     // Process without lock
     let result = process(value).await;
-    
+
     // Write lock for update
     state.write().await.result = result;
 }
@@ -130,8 +135,8 @@ async fn read_heavy(state: &RwLock<State>) {
 ```rust
 // Prefer std::sync::Mutex for work that does NOT span an .await —
 // it is simpler, faster, and avoids the async overhead.
-// Only reach for tokio::sync::Mutex when you genuinely must hold
-// the lock across an .await point (rare; usually a sign to redesign).
+// Reach for tokio::sync::Mutex when acquiring the lock must be asynchronous
+// or when the protected operation genuinely spans an .await.
 
 // std::sync::Mutex in async (quick, non-awaiting operation — preferred):
 async fn quick_update(state: &std::sync::Mutex<State>) {
@@ -142,12 +147,16 @@ async fn quick_update(state: &std::sync::Mutex<State>) {
 async fn must_await_inside(state: &tokio::sync::Mutex<State>) {
     let mut guard = state.lock().await;
     // Only justified if you truly need the lock held across an async op
-    // (usually you don't — extract data first, then release the lock)
+    // Keep this scope no longer than the protected invariant requires.
 }
 ```
+
+Clippy's `await_holding_lock` diagnoses synchronous standard-library guards; it
+does not mean that every Tokio guard crossing `.await` is invalid. Review those
+cases for cancellation behavior, fairness, and critical-section duration.
 
 ## See Also
 
 - [async-spawn-blocking](async-spawn-blocking.md) - Use spawn_blocking for CPU work
 - [async-clone-before-await](async-clone-before-await.md) - Clone data before await
-- [anti-lock-across-await](anti-lock-across-await.md) - Anti-pattern reference
+- [async-cancel-safety](async-cancel-safety.md) - preserve invariants when futures are dropped

@@ -14,7 +14,7 @@ Multi-crate workspaces often have dependency version drift—different crates us
 serde = "1.0.150"
 tokio = "1.25"
 
-# crate-b/Cargo.toml  
+# crate-b/Cargo.toml
 [dependencies]
 serde = "1.0.188"  # Different version!
 tokio = "1.32"     # Different version!
@@ -136,7 +136,7 @@ resolver = "3"  # default for the 2024 edition; use "2" for 2021
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/user/repo"
 

@@ -112,11 +112,15 @@ struct ServerBuilder {
 }
 
 impl ServerBuilder {
+    fn build(self) -> Self {
+        self
+    }
+
     fn host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
         self
     }
-    
+
     fn port(mut self, port: u16) -> Self {
         self.port = port;
         self
@@ -183,8 +187,45 @@ impl<T> Default for Wrapper<T> {
 }
 ```
 
+## Keep Evolving Construction Explicit
+
+`Default` is valuable when every omitted field genuinely has a safe, obvious
+value. Do not use struct update syntax to hide decisions in business objects or
+configuration that changes frequently: adding a field would silently select its
+default instead of requiring each call site to choose deliberately.
+
+```rust
+// Bad: a newly added `require_tls` field silently receives its default here.
+#[derive(Default)]
+struct RequestOptions { retries: u8, require_tls: bool }
+
+let request = RequestOptions { retries: 3, ..RequestOptions::default() };
+let _ = request;
+```
+
+```rust
+#[derive(Default)]
+struct RequestOptions {
+    retries: u8,
+    timeout_secs: u64,
+    follow_redirects: bool,
+    require_tls: bool,
+}
+
+let request = RequestOptions {
+    retries: 3,
+    timeout_secs: 30,
+    follow_redirects: false,
+    require_tls: true,
+};
+
+let _ = request;
+```
+
 ## See Also
 
 - [api-builder-pattern](./api-builder-pattern.md) - Building complex types
 - [api-common-traits](./api-common-traits.md) - Other common traits to implement
 - [api-from-not-into](./api-from-not-into.md) - Conversion traits
+- [type-nonempty-collection](./type-nonempty-collection.md) - encode required collection contents
+- [serde-default-compat](./serde-default-compat.md) - defaults in evolving serialized formats

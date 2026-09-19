@@ -4,7 +4,7 @@
 
 ## Why It Matters
 
-`Debug` (`{:?}`) is for developers: logs, panic messages, test assertions, and `dbg!()`. It should always be derived and reflects internal structure. `Display` (`{}`) is for end users: CLI output, error messages surfaced to humans, and log fields meant to be read in production. `std::error::Error` requires `Display` so that error chains read naturally. Routing `Debug` output to users leaks implementation details; routing `Display` output to log frameworks loses structural information.
+`Debug` (`{:?}`) is for developers: logs, panic messages, test assertions, and `dbg!()`. Derive it by default when exposing internal structure is safe; hand-write a redacting implementation for secrets and sensitive data. `Display` (`{}`) is for end users: CLI output, error messages surfaced to humans, and log fields meant to be read in production. `std::error::Error` requires `Display` so that error chains read naturally. Routing `Debug` output to users leaks implementation details; routing `Display` output to log frameworks loses structural information.
 
 ## Bad
 
@@ -62,13 +62,13 @@ fn main() {
 
 ## Guidelines
 
-| Trait | Format | Audience | How to implement |
-|-------|--------|----------|-----------------|
-| `Debug` | `{:?}` / `{:#?}` | Developers, logs | `#[derive(Debug)]` (almost always) |
-| `Display` | `{}` | End users, error messages | Hand-write to describe the condition clearly |
+| Trait     | Format           | Audience                  | How to implement                                    |
+| --------- | ---------------- | ------------------------- | --------------------------------------------------- |
+| `Debug`   | `{:?}` / `{:#?}` | Developers, logs          | Derive by default; redact sensitive fields manually |
+| `Display` | `{}`             | End users, error messages | Hand-write to describe the condition clearly        |
 
 - Never derive `Display` — it must be intentionally written.
-- `#[derive(Debug)]` on every public type (API Guidelines C-DEBUG).
+- Give public types a useful `Debug` implementation. Derive it when every field is safe to expose; hand-write a redacting implementation for secrets, credentials, and PII.
 - If your error type implements `std::error::Error`, its `Display` output becomes the human-readable error message that propagates through `anyhow::Context` and similar.
 - The `{:#?}` pretty-print form is still `Debug`; use it in tests for readable assertion output, not in user-facing code.
 
@@ -77,3 +77,5 @@ fn main() {
 - [api-common-traits](api-common-traits.md) - implement `Debug`, `Clone`, `PartialEq` eagerly
 - [err-thiserror-lib](err-thiserror-lib.md) - `thiserror` generates correct `Display` from `#[error("...")]`
 - [type-numeric-fmt](type-numeric-fmt.md) - hex/octal/binary formatting for numeric newtypes
+- [obs-no-sensitive-data](obs-no-sensitive-data.md) - redact secrets in diagnostics
+- [security-secret-comparisons](security-secret-comparisons.md) - protect secret values and comparisons

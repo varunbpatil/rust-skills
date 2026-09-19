@@ -4,7 +4,13 @@
 
 ## Why It Matters
 
-Rust's default `HashMap` uses SipHash-1-3, which is DoS-resistant (hash flooding attacks on external input are not viable) but roughly 2–4× slower than non-cryptographic hashers on typical integer and short-string keys. For internal maps keyed by compiler-generated IDs, integer handles, or other trusted data, switching to a faster hasher can meaningfully reduce CPU time in hot map-heavy code. The wrong choice here is a security bug, not just a performance one — never use a non-DoS-resistant hasher for maps keyed by untrusted external input (user-supplied strings, network data, file paths from untrusted sources).
+Rust's default `HashMap` uses a randomly keyed hasher selected to resist
+algorithmic-complexity attacks. Other hashers can improve throughput for some
+key distributions, especially internal integer IDs, but the result is workload-
+and version-dependent. Random seeding alone does not make a non-cryptographic
+hasher suitable for adversarial keys. Switch only after profiling, and keep the
+standard hasher (or perform a dedicated threat analysis) at untrusted-input
+boundaries.
 
 ## Bad
 
@@ -21,8 +27,8 @@ fn build_id_map(ids: &[(u32, String)]) -> HashMap<u32, String> {
 ## Good
 
 ```rust
-// ahash: randomized seed per process, DoS-resistant, ~2x faster than SipHash.
-// Good default replacement for most use cases.
+// aHash is randomized and often fast, but does not claim cryptographic
+// HashDoS resistance. Use it for trusted inputs after measurement.
 use ahash::AHashMap;
 
 fn build_id_map_ahash(ids: &[(u32, String)]) -> AHashMap<u32, String> {
@@ -58,17 +64,18 @@ fn fast_map_example() -> FastMap<u32, u64> {
 
 ## Hasher Selection Guide
 
-| Hasher | Crate | DoS-resistant | Speed | Use when |
-|--------|-------|--------------|-------|----------|
-| `SipHash-1-3` | std (default) | Yes | Baseline | Keys from untrusted external input |
-| `ahash` | `ahash` | Yes (randomized) | ~2× faster | General-purpose replacement; safe default upgrade |
-| `FxHash` | `rustc-hash` | No | Fastest | Trusted integer/pointer keys, compiler internals |
-| `gxhash` | `gxhash` | Optional | Very fast (SIMD) | Throughput-critical, homogeneous key types |
+| Hasher        | Crate         | DoS-resistant                 | Speed              | Use when                                         |
+| ------------- | ------------- | ----------------------------- | ------------------ | ------------------------------------------------ |
+| `SipHash-1-3` | std (default) | Yes                           | Baseline           | Keys from untrusted external input               |
+| `ahash`       | `ahash`       | Not a cryptographic guarantee | Workload-dependent | Trusted keys after profiling                     |
+| `FxHash`      | `rustc-hash`  | No                            | Fastest            | Trusted integer/pointer keys, compiler internals |
+| `gxhash`      | `gxhash`      | Consult crate threat model    | Workload-dependent | Specialized measured workloads                   |
 
 ## Key Points
 
 - **Profile first**: switch hashers only after confirming map operations appear in profiler output.
-- `ahash::AHashMap` is a drop-in replacement for `HashMap` and is the safest upgrade — it uses a random per-process seed.
+- `ahash::AHashMap` is API-compatible for many uses, but random per-process keys
+  are not a substitute for a documented adversarial-input guarantee.
 - `FxHashMap` is what rustc uses internally; it is predictable, so never expose it to externally-supplied keys.
 - Pass `with_capacity` when the final size is known — it applies regardless of hasher choice.
 

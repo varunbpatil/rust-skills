@@ -4,7 +4,12 @@
 
 ## Why It Matters
 
-Rust's ownership rules prevent you from moving a field out of a `&mut self` reference — the compiler must guarantee the field is not left in an invalid state. The standard workaround many developers reach for is `.clone()`, but that allocates unnecessarily. `std::mem::take` swaps the field with `T::default()` and returns the original value; `std::mem::replace` swaps in an explicit value of your choosing. Both are zero-copy and work wherever you have `&mut T`.
+Rust's ownership rules prevent moving a field out of a `&mut self` while leaving
+the field uninitialized. Cloning is often unnecessary: `std::mem::take`
+replaces the field with `T::default()`, while `std::mem::replace` installs an
+explicit replacement. Both avoid requiring `Clone`; they do not promise that a
+machine-level byte copy is absent, because moves and optimization are
+representation-dependent.
 
 ## Bad
 

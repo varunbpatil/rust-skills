@@ -6,6 +6,10 @@
 
 `unwrap()` panics on `None` or `Err` without any context about what went wrong. In production, this creates cryptic crash messages that are hard to debug. Either propagate errors with `?`, use `expect()` with a message explaining the invariant, or handle the error explicitly.
 
+When input can be controlled by a user, file, network peer, or environment,
+an `unwrap`, unchecked index, or unchecked UTF-8 conversion can be a denial of
+service. Treat panics on those paths as bugs; return a recoverable error instead.
+
 ## Bad
 
 ```rust
@@ -13,7 +17,7 @@ fn process_request(req: Request) -> Response {
     let user_id = req.headers.get("X-User-Id").unwrap();  // Why did it fail?
     let user = database.find_user(user_id).unwrap();       // Which operation?
     let data = user.preferences.get("theme").unwrap();     // No context
-    
+
     Response::new(data)
 }
 
@@ -29,13 +33,13 @@ fn process_request(req: Request) -> Result<Response, AppError> {
     let user_id = req.headers
         .get("X-User-Id")
         .ok_or(AppError::MissingHeader("X-User-Id"))?;
-    
+
     let user = database.find_user(user_id)?;
-    
+
     let data = user.preferences
         .get("theme")
         .ok_or(AppError::MissingPreference("theme"))?;
-    
+
     Ok(Response::new(data))
 }
 
@@ -82,13 +86,13 @@ let port = config.get("port")
 
 ## Alternatives to unwrap()
 
-| Situation | Use Instead |
-|-----------|-------------|
-| Can propagate error | `?` operator |
-| Has sensible default | `unwrap_or()`, `unwrap_or_default()` |
-| Default requires computation | `unwrap_or_else(\|\| ...)` |
-| Internal invariant | `expect("explanation")` |
-| Need to handle both cases | `match` or `if let` |
+| Situation                    | Use Instead                          |
+| ---------------------------- | ------------------------------------ |
+| Can propagate error          | `?` operator                         |
+| Has sensible default         | `unwrap_or()`, `unwrap_or_default()` |
+| Default requires computation | `unwrap_or_else(\|\| ...)`           |
+| Internal invariant           | `expect("explanation")`              |
+| Need to handle both cases    | `match` or `if let`                  |
 
 ## Clippy Lints
 
@@ -113,3 +117,4 @@ fn definitely_safe() {
 - [err-result-over-panic](./err-result-over-panic.md) - Return Result instead of panicking
 - [err-expect-bugs-only](./err-expect-bugs-only.md) - When expect() is appropriate
 - [anti-unwrap-abuse](./anti-unwrap-abuse.md) - Patterns for avoiding unwrap
+- [security-panic-semantics](./security-panic-semantics.md) - choose and document production panic behavior

@@ -77,7 +77,7 @@ all = "warn"
 [package]
 name = "my-app-core"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 # Inherit from workspace
@@ -96,24 +96,24 @@ workspace = true  # Inherit workspace lints
 
 ## When to Use Workspaces
 
-| Scenario | Recommendation |
-|----------|----------------|
-| Single binary/library | No workspace needed |
-| Library + CLI | Maybe, depends on size |
-| Multiple related crates | Yes |
-| Shared internal libraries | Yes |
-| Microservices mono-repo | Yes |
-| Plugin architecture | Yes |
+| Scenario                  | Recommendation         |
+| ------------------------- | ---------------------- |
+| Single binary/library     | No workspace needed    |
+| Library + CLI             | Maybe, depends on size |
+| Multiple related crates   | Yes                    |
+| Shared internal libraries | Yes                    |
+| Microservices mono-repo   | Yes                    |
+| Plugin architecture       | Yes                    |
 
 ## Benefits
 
-| Aspect | Single Crate | Workspace |
-|--------|--------------|-----------|
-| Build cache | Crate only | Shared across all |
-| Dependency versions | Per-crate | Synchronized |
-| Compile times | Full rebuild | Incremental |
-| Modularity | Files/modules | Crate boundaries |
-| Publishing | Single crate | Independent |
+| Aspect              | Single Crate  | Workspace         |
+| ------------------- | ------------- | ----------------- |
+| Build cache         | Crate only    | Shared across all |
+| Dependency versions | Per-crate     | Synchronized      |
+| Compile times       | Full rebuild  | Incremental       |
+| Modularity          | Files/modules | Crate boundaries  |
+| Publishing          | Single crate  | Independent       |
 
 ## Commands
 

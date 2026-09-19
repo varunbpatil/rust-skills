@@ -1,10 +1,15 @@
 # opt-inline-small
 
-> Use `#[inline]` for small hot functions
+> Let the compiler inline by default; hint small cross-crate hot functions when measurement supports it
 
 ## Why It Matters
 
-Function call overhead (stack frame setup, register saves, jumps) can dominate small functions. Inlining eliminates this overhead and enables further optimizations by the compiler. The compiler often inlines automatically, but hints help for cross-crate calls.
+Inlining can remove call overhead and, more importantly, expose further
+optimization opportunities. Rust and LLVM already inline automatically.
+`#[inline]` is a hint that also makes a function body available for cross-crate
+inlining; it does not guarantee that a call is inlined. Use it selectively on
+small library functions shown to matter, since excess inlining increases code
+size and compile time.
 
 ## Bad
 
@@ -31,7 +36,7 @@ fn is_ascii_digit(b: u8) -> bool {
     b >= b'0' && b <= b'9'
 }
 
-// Now the compiler will inline this
+// The compiler may inline this, including at downstream call sites.
 for byte in data {
     if is_ascii_digit(*byte) {  // Inlined, no call overhead
         count += 1;
@@ -158,7 +163,7 @@ cargo rustc --release -- --emit=asm
 
 ## See Also
 
-- [opt-inline-always-rare](opt-inline-always-rare.md) - Use #[inline(always)] sparingly
-- [opt-inline-never-cold](opt-inline-never-cold.md) - Use #[inline(never)] for cold paths
-- [opt-cold-unlikely](opt-cold-unlikely.md) - Use #[cold] for unlikely paths
+- [opt-inline-always-rare](opt-inline-always-rare.md) - Use `#[inline(always)]` sparingly
+- [opt-inline-never-cold](opt-inline-never-cold.md) - Use `#[inline(never)]` for cold paths
+- [opt-cold-unlikely](opt-cold-unlikely.md) - Use #`[cold]` for unlikely paths
 - [opt-lto-release](opt-lto-release.md) - LTO enables cross-crate inlining

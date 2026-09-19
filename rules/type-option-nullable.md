@@ -110,6 +110,21 @@ let value = find("key").ok_or(Error::NotFound)?;
 let value = parse("input").ok();  // Discards error
 ```
 
+## Make Required Absence an Error at the Boundary
+
+Return `Option` when absence is a normal answer. If a caller cannot continue
+without the value, convert it once into an error that explains the operation.
+
+```rust
+fn required_header(headers: &[(&str, &str)], name: &str) -> Result<String, String> {
+    headers
+        .iter()
+        .find(|(key, _)| *key == name)
+        .map(|(_, value)| (*value).to_owned())
+        .ok_or_else(|| format!("missing required header: {name}"))
+}
+```
+
 ## Option References
 
 ```rust

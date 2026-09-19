@@ -1,10 +1,16 @@
 # own-move-large
 
-> Move large types instead of copying; use `Box` if moves are expensive
+> Borrow large values by default; box only when profiling or layout constraints justify it
 
 ## Why It Matters
 
-In Rust, "moving" a value means copying its bytes to a new location and invalidating the old one. For large types (hundreds of bytes), this memcpy can be expensive. Boxing large types reduces move cost to copying a single pointer (8 bytes), making moves cheap regardless of the actual data size.
+A Rust move transfers ownership and may require relocating bytes, but the
+optimizer can often elide that relocation. Large inline values can make repeated
+moves expensive or consume too much stack; boxing gives them a stable heap
+location and makes the owner pointer-sized. The allocation and pointer
+indirection have costs of their own, so first design APIs to borrow when they do
+not need ownership and use profiling or layout constraints—not a byte
+threshold—to decide whether to box.
 
 ## Bad
 
@@ -18,19 +24,20 @@ struct GameState {
 }
 
 fn process_state(state: GameState) -> GameState {
-    // Moving ~40KB+ of data
-    let mut new_state = state;  // Memcpy here
+    // The source-level moves permit relocation, although optimization may
+    // elide it. Passing a mutable borrow is clearer if ownership is unnecessary.
+    let mut new_state = state;
     new_state.apply_rules();
-    new_state  // Memcpy on return
+    new_state
 }
 
 let state = GameState::new();
-let state = process_state(state);  // Two large memcpys
+let state = process_state(state);
 ```
 
 ## Good
 
-```rust
+```rust,ignore
 // Box reduces move cost to 8 bytes
 struct GameState {
     board: Box<[[Cell; 100]; 100]>,  // Pointer to heap
@@ -53,13 +60,13 @@ fn process_large(state: Box<LargeStruct>) -> Box<LargeStruct> {
 
 ## When to Box
 
-| Type Size | Move Frequency | Recommendation |
-|-----------|----------------|----------------|
-| < 128 bytes | Any | Don't box |
-| 128-512 bytes | Rare | Probably don't box |
-| 128-512 bytes | Frequent | Consider boxing |
-| > 512 bytes | Any | Box or use references |
-| > 4KB | Any | Definitely box |
+| Situation                                            | Recommendation                                      |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| Callee only needs access                             | Pass `&T` or `&mut T`                               |
+| Recursive type or enum-size imbalance                | Box the recursive or large variant                  |
+| Stable address is part of the contract               | Use `Pin<Box<T>>` when pinning is actually required |
+| Stack budget or measured relocation is a problem     | Consider `Box<T>` and benchmark end-to-end          |
+| Ordinary ownership transfer with no evidence of cost | Keep the simpler inline representation              |
 
 ## Stack vs Heap Tradeoffs
 
@@ -107,7 +114,7 @@ impl LargeConfig {
 }
 
 impl ConfigBuilder {
-    // Return boxed to avoid large move
+    // Return boxed only when the API or measurements justify heap ownership.
     pub fn build(self) -> Box<LargeConfig> {
         Box::new(LargeConfig {
             // ... fields from builder

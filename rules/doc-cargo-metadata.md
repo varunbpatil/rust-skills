@@ -12,7 +12,7 @@ Cargo.toml metadata appears on crates.io, in search results, and helps users eva
 [package]
 name = "my-awesome-crate"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 # ...
@@ -24,8 +24,8 @@ edition = "2021"
 [package]
 name = "my-awesome-crate"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.85"
 
 # Required for crates.io
 description = "A fast, ergonomic HTTP client for Rust"
@@ -53,23 +53,23 @@ maintenance = { status = "actively-developed" }
 
 ## Required Fields for Publishing
 
-| Field | Purpose |
-|-------|---------|
-| `name` | Crate name on crates.io |
-| `version` | Semver version |
-| `license` or `license-file` | SPDX license identifier |
-| `description` | One-line summary (≤256 chars) |
+| Field                       | Purpose                       |
+| --------------------------- | ----------------------------- |
+| `name`                      | Crate name on crates.io       |
+| `version`                   | Semver version                |
+| `license` or `license-file` | SPDX license identifier       |
+| `description`               | One-line summary (≤256 chars) |
 
 ## Recommended Fields
 
-| Field | Purpose | Example |
-|-------|---------|---------|
-| `repository` | Link to source code | `https://github.com/user/repo` |
-| `documentation` | Link to docs | `https://docs.rs/crate` |
-| `readme` | Path to README | `README.md` |
-| `keywords` | Search terms (max 5) | `["http", "async"]` |
-| `categories` | crates.io categories | `["network-programming"]` |
-| `rust-version` | MSRV | `"1.70"` |
+| Field           | Purpose              | Example                        |
+| --------------- | -------------------- | ------------------------------ |
+| `repository`    | Link to source code  | `https://github.com/user/repo` |
+| `documentation` | Link to docs         | `https://docs.rs/crate`        |
+| `readme`        | Path to README       | `README.md`                    |
+| `keywords`      | Search terms (max 5) | `["http", "async"]`            |
+| `categories`    | crates.io categories | `["network-programming"]`      |
+| `rust-version`  | MSRV                 | `"1.85"`                       |
 
 ## Keywords Best Practices
 

@@ -8,13 +8,13 @@ Drop order is observable. RAII guards (mutex locks, file handles, database trans
 
 ## The Rules
 
-| Construct | Drop order |
-|---|---|
-| Struct fields | Declaration order: first field declared, first dropped |
-| Tuple / array elements | In order: index 0, 1, 2, … |
-| Local variables | Reverse declaration order: last declared, first dropped |
-| Temporaries in a statement | End of the statement (with some exceptions) |
-| Function arguments | Reverse order of the parameter list |
+| Construct                  | Drop order                                              |
+| -------------------------- | ------------------------------------------------------- |
+| Struct fields              | Declaration order: first field declared, first dropped  |
+| Tuple / array elements     | In order: index 0, 1, 2, …                              |
+| Local variables            | Reverse declaration order: last declared, first dropped |
+| Temporaries in a statement | End of the statement (with some exceptions)             |
+| Function arguments         | Reverse order of the parameter list                     |
 
 ## Bad
 
@@ -68,7 +68,7 @@ Fields drop in declaration order, so the field at the top of the struct drops fi
 
 Local variables drop in **reverse** declaration order, which is often what you want (last-in, first-out). When the natural order is wrong, use explicit `drop`:
 
-```rust
+```rust,ignore
 fn process() {
     let conn = open_connection();   // dropped third (last to drop)
     let txn  = begin_transaction(); // dropped second

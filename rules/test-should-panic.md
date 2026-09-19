@@ -48,28 +48,33 @@ fn index_panic_contains_message() {
 }
 ```
 
-## Testing Invariants
+## Testing Internal Invariants
 
 ```rust
-struct NonEmpty<T>(Vec<T>);
+struct Parser {
+    // Private parser construction establishes this invariant after tokenization.
+    current_token: Option<String>,
+}
 
-impl<T> NonEmpty<T> {
-    fn new(items: Vec<T>) -> Self {
-        assert!(!items.is_empty(), "NonEmpty cannot be empty");
-        NonEmpty(items)
+impl Parser {
+    fn current_token(&self) -> &str {
+        self.current_token
+            .as_deref()
+            .expect("parser maintains a current token")
     }
 }
 
 #[test]
-#[should_panic(expected = "NonEmpty cannot be empty")]
-fn non_empty_rejects_empty_vec() {
-    NonEmpty::new(Vec::<i32>::new());
+#[should_panic(expected = "parser maintains a current token")]
+fn parser_invariant_violation_panics() {
+    // Unit tests within the module may deliberately construct invalid private state.
+    Parser { current_token: None }.current_token();
 }
 
 #[test]
-fn non_empty_accepts_non_empty_vec() {
-    let ne = NonEmpty::new(vec![1, 2, 3]);
-    assert_eq!(ne.0.len(), 3);
+fn parser_returns_its_current_token() {
+    let parser = Parser { current_token: Some("name".into()) };
+    assert_eq!(parser.current_token(), "name");
 }
 ```
 
@@ -115,10 +120,10 @@ fn invalid_input_returns_error() {
 fn test_panics() -> Result<(), Error> {
     // Can combine with Result for setup
     let data = setup_test_data()?;
-    
+
     // This should panic
     process_invalid(&data);
-    
+
     Ok(())  // Never reached
 }
 ```
@@ -128,3 +133,4 @@ fn test_panics() -> Result<(), Error> {
 - [err-result-over-panic](./err-result-over-panic.md) - Panic vs Result
 - [err-expect-bugs-only](./err-expect-bugs-only.md) - When to use expect
 - [test-descriptive-names](./test-descriptive-names.md) - Test naming
+- [type-nonempty-collection](./type-nonempty-collection.md) - model required non-empty input with fallible construction

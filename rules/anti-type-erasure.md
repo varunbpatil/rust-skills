@@ -84,15 +84,15 @@ struct EventLoop {
 
 ## Comparison
 
-| Approach | Allocation | Dispatch | Binary Size |
-|----------|------------|----------|-------------|
-| `impl Trait` | Stack/inline | Static | Larger (monomorphization) |
-| `Box<dyn Trait>` | Heap | Dynamic | Smaller |
-| Generics `<T>` | Stack/inline | Static | Larger |
+| Approach         | Allocation   | Dispatch | Binary Size               |
+| ---------------- | ------------ | -------- | ------------------------- |
+| `impl Trait`     | Stack/inline | Static   | Larger (monomorphization) |
+| `Box<dyn Trait>` | Heap         | Dynamic  | Smaller                   |
+| Generics `<T>`   | Stack/inline | Static   | Larger                    |
 
 ## impl Trait Positions
 
-```rust
+```rust,ignore
 // Return position - caller doesn't need to know concrete type
 fn process() -> impl Future<Output = Result> { }
 

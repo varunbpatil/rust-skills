@@ -88,22 +88,26 @@ fn main() {
 
 ## Decision Guide
 
-| Situation | Verdict |
-|-----------|---------|
-| Arithmetic on a numeric newtype or geometric type | Implement |
-| Set operations (`|` for union, `&` for intersection) | Implement |
-| String concatenation on a custom string type | Implement |
-| `Index`/`IndexMut` on a container that holds items | Implement |
-| `+` or `*` with visible side effects | Never |
-| Operator meaning depends on context not captured by types | Use a named method |
+| Situation                                                 | Verdict                          |
+| --------------------------------------------------------- | -------------------------------- | --------- |
+| Arithmetic on a numeric newtype or geometric type         | Implement                        |
+| Set operations (`                                         | `for union,`&` for intersection) | Implement |
+| String concatenation on a custom string type              | Implement                        |
+| `Index`/`IndexMut` on a container that holds items        | Implement                        |
+| `+` or `*` with visible side effects                      | Never                            |
+| Operator meaning depends on context not captured by types | Use a named method               |
 
 ## Notes
 
-- Always implement the corresponding assignment operator (`AddAssign`, `SubAssign`, etc.) when you implement the binary op.
-- Prefer implementing for both owned and `&` forms to give callers flexibility without extra copies.
+- Implement the corresponding assignment operator (`AddAssign`, `SubAssign`,
+  etc.) when in-place mutation has the same natural semantics; it is not a
+  mechanical requirement for every binary operator.
+- Add owned and reference forms when both are useful and consistent. Avoid an
+  impl matrix that adds maintenance and compile-time cost without ergonomic
+  benefit.
 - Consider `std::ops::Mul<f64> for Vector2` (scalar multiply) alongside `Mul<Vector2>` — real-world numeric types often need several rhs types.
 
 ## See Also
 
 - [type-newtype-ids](type-newtype-ids.md) - wrapping values in newtypes that may need operators
-- [api-common-traits](api-common-traits.md) - implement `Debug`, `Clone`, `PartialEq` eagerly
+- [api-common-traits](api-common-traits.md) - choose semantically appropriate common traits

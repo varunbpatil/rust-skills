@@ -6,7 +6,21 @@
 
 The `clippy::cargo` lint group checks Cargo.toml for issues that affect publishing and dependency management. For crates intended for crates.io, these checks help ensure a professional, well-configured package.
 
-## Configuration
+## Bad
+
+Publishing without running the Cargo lint group leaves missing metadata and
+dependency-policy issues to downstream users or crates.io validation.
+
+```toml
+[package]
+name = "published-crate"
+version = "0.1.0"
+# description, license, repository, and rust-version are absent
+```
+
+## Good
+
+### Configuration
 
 ```toml
 # Cargo.toml
@@ -58,13 +72,13 @@ feature-a = []  # Feature name matches crate name
 
 ## Notable Lints
 
-| Lint | Issue |
-|------|-------|
-| `cargo_common_metadata` | Missing description/license/repository |
-| `multiple_crate_versions` | Same crate at different versions |
-| `negative_feature_names` | Features like `no-std` instead of `std` |
-| `redundant_feature_names` | Feature same as crate name |
-| `wildcard_dependencies` | Using `*` for version |
+| Lint                      | Issue                                   |
+| ------------------------- | --------------------------------------- |
+| `cargo_common_metadata`   | Missing description/license/repository  |
+| `multiple_crate_versions` | Same crate at different versions        |
+| `negative_feature_names`  | Features like `no-std` instead of `std` |
+| `redundant_feature_names` | Feature same as crate name              |
+| `wildcard_dependencies`   | Using `*` for version                   |
 
 ## Complete Cargo.toml
 
@@ -72,8 +86,8 @@ feature-a = []  # Feature name matches crate name
 [package]
 name = "my-crate"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.70"
+edition = "2024"
+rust-version = "1.85"
 
 # Required for cargo lint satisfaction
 description = "A short description of what this crate does"

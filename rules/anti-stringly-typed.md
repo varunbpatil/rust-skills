@@ -32,7 +32,7 @@ process_order("high", "pending");   // Swapped arguments - compiles!
 
 ## Good
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OrderStatus {
     Pending,
@@ -99,7 +99,7 @@ enum OrderStatus {
 
 impl FromStr for OrderStatus {
     type Err = ParseError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "pending" => Ok(OrderStatus::Pending),

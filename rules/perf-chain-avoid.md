@@ -12,7 +12,7 @@
 // Chain in hot inner loop
 fn process_hot_path(a: &[i32], b: &[i32]) -> i64 {
     let mut sum = 0i64;
-    
+
     // Called millions of times
     for _ in 0..1_000_000 {
         for x in a.iter().chain(b.iter()) {  // Branch every iteration
@@ -40,7 +40,7 @@ fn combine_results(parts: &[&[u8]]) -> Vec<u8> {
 // Separate loops - branch-free inner loops
 fn process_hot_path(a: &[i32], b: &[i32]) -> i64 {
     let mut sum = 0i64;
-    
+
     for _ in 0..1_000_000 {
         for x in a {
             sum += *x as i64;
@@ -67,7 +67,7 @@ fn combine_results(parts: &[&[u8]]) -> Vec<u8> {
 
 Chain is perfectly acceptable when:
 
-```rust
+```rust,ignore
 // One-time iteration, not in hot path
 fn collect_all(a: Vec<i32>, b: Vec<i32>) -> Vec<i32> {
     a.into_iter().chain(b).collect()
@@ -121,13 +121,13 @@ for item in all.iter().flat_map(|slice| slice.iter()) {
 
 ## Performance Impact
 
-| Pattern | Per-Item Overhead |
-|---------|-------------------|
-| Single iterator | None |
-| `chain(a, b)` | 1 branch per item |
-| `chain(a, b, c)` | 2 branches per item |
-| Nested chains | Compounds |
-| Separate loops | None (but code duplication) |
+| Pattern          | Per-Item Overhead           |
+| ---------------- | --------------------------- |
+| Single iterator  | None                        |
+| `chain(a, b)`    | 1 branch per item           |
+| `chain(a, b, c)` | 2 branches per item         |
+| Nested chains    | Compounds                   |
+| Separate loops   | None (but code duplication) |
 
 ## See Also
 

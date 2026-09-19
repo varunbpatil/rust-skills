@@ -40,7 +40,7 @@ impl Email {
             Err(EmailError::Invalid(s.to_string()))
         }
     }
-    
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -96,7 +96,7 @@ impl PositiveI32 {
             None
         }
     }
-    
+
     pub fn get(&self) -> i32 {
         self.0
     }
@@ -118,7 +118,7 @@ impl Percentage {
 
 ## With Serde
 
-```rust
+```rust,ignore
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
@@ -152,6 +152,15 @@ macro_rules! email {
 let admin = email!("admin@example.com");  // Validated at compile time
 ```
 
+## Generated Validated Newtypes
+
+For many validation-only wrappers, the maintained
+[`nutype`](https://crates.io/crates/nutype) procedural macro can generate the
+constructor, validation error, common trait implementations, and optional Serde
+support. Prefer a handwritten type when validation has domain-specific error
+semantics, construction performs substantial work, the public API must avoid a
+macro dependency, or generated behavior would obscure an invariant.
+
 ## See Also
 
 - [api-parse-dont-validate](./api-parse-dont-validate.md) - Parse at boundaries
@@ -159,3 +168,4 @@ let admin = email!("admin@example.com");  // Validated at compile time
 - [type-newtype-ids](./type-newtype-ids.md) - ID newtypes
 - [conv-fromstr-parsing](./conv-fromstr-parsing.md) - FromStr for validated parsing
 - [serde-try-from-validate](./serde-try-from-validate.md) - Validate during deserialization
+- [type-nonempty-collection](./type-nonempty-collection.md) - validate collection invariants

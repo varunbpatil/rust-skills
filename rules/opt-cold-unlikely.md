@@ -14,15 +14,15 @@ fn validate(input: &str) -> Result<Data, ValidationError> {
     if input.is_empty() {
         return Err(ValidationError::Empty);  // Rare
     }
-    
+
     if input.len() > 1000 {
-        return Err(ValidationError::TooLong);  // Rare  
+        return Err(ValidationError::TooLong);  // Rare
     }
-    
+
     if !input.is_ascii() {
         return Err(ValidationError::NonAscii);  // Rare
     }
-    
+
     // This is the common case
     Ok(parse_data(input))
 }
@@ -35,15 +35,15 @@ fn validate(input: &str) -> Result<Data, ValidationError> {
     if input.is_empty() {
         return cold_empty_error();
     }
-    
+
     if input.len() > 1000 {
         return cold_too_long_error();
     }
-    
+
     if !input.is_ascii() {
         return cold_non_ascii_error();
     }
-    
+
     Ok(parse_data(input))
 }
 
@@ -107,6 +107,8 @@ fn get_unchecked(&self, index: usize) -> &T {
     if index >= self.len {
         cold_bounds_panic(index, self.len);
     }
+    // SAFETY: the type invariant guarantees `ptr` is valid for `len` elements,
+    // and the check above proves `index < len`.
     unsafe { &*self.ptr.add(index) }
 }
 

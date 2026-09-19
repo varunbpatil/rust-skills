@@ -1,10 +1,15 @@
 # api-non-exhaustive
 
-> Use `#[non_exhaustive]` on public enums and structs for forward compatibility
+> Use `#[non_exhaustive]` when a public type is intentionally open to compatible growth
 
 ## Why It Matters
 
-Adding a variant to a public enum or a field to a public struct is normally a breaking change—downstream code may match exhaustively or use struct literal syntax. `#[non_exhaustive]` forces external code to use wildcards in matches and constructors, allowing you to add variants/fields in minor versions without breaking callers.
+Adding a variant to a public enum or a field to a public struct is normally a
+breaking change—downstream code may match exhaustively or use struct literal
+syntax. `#[non_exhaustive]` preserves room for compatible growth, at the cost of
+preventing exhaustive downstream reasoning or literal construction. Use it when
+the type is intentionally open-ended; keep deliberately closed state machines
+and complete domains exhaustive.
 
 ## Bad
 
@@ -120,7 +125,7 @@ impl Point {
 // External code can read fields but not construct with literals
 fn external(p: Point) {
     println!("x: {}, y: {}", p.x, p.y);  // Reading is fine
-    
+
     // let p2 = Point { x: 1.0, y: 2.0 };  // Error!
     let p2 = Point::new(1.0, 2.0);  // Must use constructor
 }
@@ -133,7 +138,7 @@ pub enum Message {
     // Specific variant is non-exhaustive
     #[non_exhaustive]
     Error { code: u32, message: String },
-    
+
     Ok(Data),
 }
 

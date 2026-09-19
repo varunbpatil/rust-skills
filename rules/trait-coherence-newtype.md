@@ -4,7 +4,7 @@
 
 ## Why It Matters
 
-Rust's coherence rules — enforced by the orphan rule — require that for any `impl Trait for Type`, either `Trait` or `Type` must be defined in the current crate. This prevents two crates from providing conflicting implementations for the same (trait, type) pair, which would make the compiler unable to pick one. When you need to implement a trait you didn't define (e.g., `std::fmt::Display`) on a type you didn't define (e.g., `Vec<i32>`), the compiler rejects the impl outright. The solution is to wrap the foreign type in a local newtype struct, then implement the foreign trait on the wrapper. Marking the wrapper `#[repr(transparent)]` keeps it zero-cost and allows safe pointer casts where needed.
+Rust's coherence rules — enforced by the orphan rule — require that for any `impl Trait for Type`, either `Trait` or `Type` must be defined in the current crate. This prevents two crates from providing conflicting implementations for the same (trait, type) pair, which would make the compiler unable to pick one. When you need to implement a trait you didn't define (e.g., `std::fmt::Display`) on a type you didn't define (e.g., `Vec<i32>`), the compiler rejects the impl outright. The solution is to wrap the foreign type in a local newtype struct, then implement the foreign trait on the wrapper. A newtype is normally zero-cost without a representation attribute. Add `#[repr(transparent)]` only when a documented ABI/layout relationship is required; layout equivalence alone does not make arbitrary pointer casts or dereferences safe.
 
 ## Bad
 
@@ -31,7 +31,7 @@ impl CommaSeparated {
 
     // Provide access to the inner value.
     pub fn into_inner(self) -> Vec<i32> { self.0 }
-    pub fn inner(&self) -> &Vec<i32> { &self.0 }
+    pub fn inner(&self) -> &[i32] { &self.0 }
 }
 
 // Now both the trait (Display) is foreign and the type (CommaSeparated) is local —
@@ -72,8 +72,12 @@ fn demo() {
 ## Key Points
 
 - The orphan rule: `impl<T> ForeignTrait for ForeignType<T>` is always rejected, even with a type parameter.
-- `#[repr(transparent)]` is mandatory for newtypes that need the same ABI as the inner type (e.g., FFI, pointer casts via `transmute`). For purely logical wrapping, it is optional but good practice.
-- Provide `From`/`Into` conversions and an `inner()` / `into_inner()` accessor so callers can move in and out of the wrapper easily.
+- `#[repr(transparent)]` is required when code relies on the wrapper having the
+  inner field's ABI. It does not by itself establish pointer provenance,
+  alignment, validity, aliasing, or ownership invariants.
+- Implement `From` conversions and provide borrowed/owned accessors when those
+  conversions preserve the abstraction's invariants. `Into` follows from the
+  standard blanket implementation.
 - The newtype pattern is described in the Rust API Guidelines under "Newtypes provide static distinctions" (rust-lang.github.io/api-guidelines/).
 - Newtype wrappers are also the correct way to add trait impls to types from transitive dependencies that you do not control.
 

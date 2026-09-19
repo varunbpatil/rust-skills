@@ -59,10 +59,16 @@ fn fill_vec(v: &mut Vec<u8>, extra: usize) {
 
 ## Key Points
 
-- **`assume_init` is only sound after every byte is initialized** via `write`, an FFI call that fills the buffer, or another provably complete initialization path. Calling it on partially initialized memory is UB.
+- **`assume_init` is only sound once the memory contains a valid initialized
+  `T`.** Every field/value byte required by `T` must be initialized and satisfy
+  its validity invariant; padding bytes need not be initialized. Calling it on
+  a partially initialized value is UB.
 - Create arrays of uninitialized memory with `[const { MaybeUninit::uninit() }; N]` (works for any `T`). Convert a fully-initialized `[MaybeUninit<T>; N]` to `[T; N]` via `MaybeUninit::<[T; N]>::from(arr)` then `assume_init()` — these `From` conversions are stable since Rust 1.95. The `MaybeUninit::array_assume_init` helper remains nightly-only (feature `maybe_uninit_array_assume_init`).
 - `Vec::spare_capacity_mut` returns `&mut [MaybeUninit<T>]` — the idiomatic way to write into Vec capacity before extending its length.
-- For zeroed memory where zero is a valid bit pattern for all fields (e.g. `u8`, `i32`, plain C structs with no references), `mem::zeroed()` is technically sound but `MaybeUninit` is still preferred for clarity.
+- `MaybeUninit::zeroed().assume_init()` is sound only when the all-zero bit
+  pattern is a valid value of the complete type. Do not infer that merely from
+  `repr(C)` or from the absence of references; use ordinary initialization when
+  practical.
 - `mem::uninitialized` is not just deprecated — it is `#[deprecated(since = "1.39.0")]` and has no safe migration; replace every usage with `MaybeUninit`.
 
 ## See Also

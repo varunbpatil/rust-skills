@@ -84,7 +84,7 @@ fn good_log(writer: &mut impl Write, msg: &str, code: u32) {
 
 ## Pre-allocate for Multiple Appends
 
-```rust
+```rust,ignore
 // Bad: Multiple allocations
 fn build_message(parts: &[&str]) -> String {
     let mut result = String::new();
@@ -145,3 +145,4 @@ return Err(format!("Invalid value: {}", value).into());
 - [mem-write-over-format](mem-write-over-format.md) - Use write!() instead of format!()
 - [mem-with-capacity](mem-with-capacity.md) - Pre-allocate strings
 - [own-cow-conditional](own-cow-conditional.md) - Use Cow for mixed static/dynamic
+- [perf-io-buffering](perf-io-buffering.md) - buffer repeated output operations

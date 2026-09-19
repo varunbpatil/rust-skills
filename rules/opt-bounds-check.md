@@ -4,15 +4,20 @@
 
 ## Why It Matters
 
-Rust's safety guarantees require bounds checking on array/slice indexing. In tight loops, these checks can cause measurable overhead (branch mispredictions, preventing vectorization). Patterns like iterators, `get_unchecked`, and index splitting can eliminate these checks while maintaining safety.
+Safe array and slice indexing has bounds semantics, but the optimizer can prove
+many checks redundant and remove them. In measured hot loops, iterators,
+`windows`, `chunks_exact`, and slice splitting often make valid ranges clearer
+to both readers and the optimizer. Verify generated code before reaching for
+`get_unchecked`; unsafe indexing exchanges a possible check for a proof burden.
 
 ## Bad
 
 ```rust
 fn sum_products(a: &[f64], b: &[f64]) -> f64 {
     let mut sum = 0.0;
+    assert_eq!(a.len(), b.len());
     for i in 0..a.len() {
-        sum += a[i] * b[i];  // Two bounds checks per iteration
+        sum += a[i] * b[i];  // checks may optimize away, but indexing is noisy
     }
     sum
 }
@@ -29,16 +34,17 @@ fn apply_filter(data: &mut [u8], kernel: &[u8; 3]) {
 
 ```rust
 fn sum_products(a: &[f64], b: &[f64]) -> f64 {
-    // Iterator zips - no bounds checks, vectorizes well
+    assert_eq!(a.len(), b.len()); // preserve the indexed version's contract
+    // Zip exposes aligned traversal; verify elimination/vectorization.
     a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 fn apply_filter(data: &mut [u8]) {
-    // Windows pattern - no bounds checks
+    // Windows exposes valid three-element subslices.
     for window in data.windows(3) {
         // window[0], window[1], window[2] are all valid
     }
-    
+
     // Or use chunks
     for chunk in data.chunks_exact(4) {
         process_simd(chunk);
@@ -56,7 +62,7 @@ fn apply_filter(data: &mut [u8]) {
 // zip - parallel iteration
 for (a, b) in xs.iter().zip(ys.iter()) { ... }
 
-// enumerate - index + value  
+// enumerate - index + value
 for (i, x) in data.iter().enumerate() { ... }
 
 // windows - sliding window
@@ -76,11 +82,11 @@ let (left, right) = data.split_at(mid);
 fn parallel_sum(data: &[i32]) -> i32 {
     // Split into independent chunks
     let (left, right) = data.split_at(data.len() / 2);
-    
-    // Process chunks without bounds checks
+
+    // Process chunks through iterators over valid elements.
     let sum_left: i32 = left.iter().sum();
     let sum_right: i32 = right.iter().sum();
-    
+
     sum_left + sum_right
 }
 ```
@@ -92,14 +98,14 @@ fn matrix_multiply(a: &[f64], b: &[f64], c: &mut [f64], n: usize) {
     assert!(a.len() >= n * n);
     assert!(b.len() >= n * n);
     assert!(c.len() >= n * n);
-    
+
     for i in 0..n {
         for j in 0..n {
             let mut sum = 0.0;
             for k in 0..n {
                 // SAFETY: bounds verified by asserts above
                 unsafe {
-                    sum += a.get_unchecked(i * n + k) 
+                    sum += a.get_unchecked(i * n + k)
                          * b.get_unchecked(k * n + j);
                 }
             }
@@ -120,7 +126,7 @@ fn process_header(data: &[u8]) -> Option<Header> {
     let [a, b, c, d, rest @ ..] = data else {
         return None;
     };
-    
+
     Some(Header {
         magic: *a,
         version: *b,

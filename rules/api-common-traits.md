@@ -1,6 +1,6 @@
 # api-common-traits
 
-> Implement standard traits (Debug, Clone, PartialEq, etc.) for public types
+> Implement standard traits for public types when their semantics are honest and useful
 
 ## Why It Matters
 
@@ -51,17 +51,17 @@ let mut map: HashMap<UserId, User> = HashMap::new();
 
 ## Trait Derivation Guide
 
-| Trait | Derive When | Requirements |
-|-------|-------------|--------------|
-| `Debug` | Always for public types | All fields implement Debug |
-| `Clone` | Type can be duplicated | All fields implement Clone |
-| `Copy` | Small, simple types | All fields implement Copy, no Drop |
-| `PartialEq` | Comparison makes sense | All fields implement PartialEq |
-| `Eq` | Total equality | PartialEq, no floating-point fields |
-| `Hash` | Used as HashMap/HashSet key | Eq, consistent with PartialEq |
-| `Default` | Sensible default exists | All fields implement Default |
-| `PartialOrd` | Ordering makes sense | PartialEq, all fields implement PartialOrd |
-| `Ord` | Total ordering | Eq + PartialOrd, no floating-point |
+| Trait        | Derive When                                                                      | Requirements                                                    |
+| ------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Debug`      | Public types need useful diagnostics; derive only when fields are safe to reveal | All fields implement Debug, or write a redacting implementation |
+| `Clone`      | Type can be duplicated                                                           | All fields implement Clone                                      |
+| `Copy`       | Small, simple types                                                              | All fields implement Copy, no Drop                              |
+| `PartialEq`  | Comparison makes sense                                                           | All fields implement PartialEq                                  |
+| `Eq`         | Total equality                                                                   | PartialEq, no floating-point fields                             |
+| `Hash`       | Used as HashMap/HashSet key                                                      | Eq, consistent with PartialEq                                   |
+| `Default`    | Sensible default exists                                                          | All fields implement Default                                    |
+| `PartialOrd` | Ordering makes sense                                                             | PartialEq, all fields implement PartialOrd                      |
+| `Ord`        | Total ordering                                                                   | Eq + PartialOrd, no floating-point                              |
 
 ## Common Trait Bundles
 
@@ -93,6 +93,8 @@ pub enum ParseError {
 
 ```rust
 // When derive doesn't do what you want
+use std::{fmt, fmt::Debug, hash::{Hash, Hasher}};
+
 struct CaseInsensitiveString(String);
 
 impl PartialEq for CaseInsensitiveString {
@@ -137,20 +139,20 @@ pub struct ApiResponse {
 pub struct Config {
     #[serde(default)]
     pub verbose: bool,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
 }
 ```
 
-## Minimum Recommended
+## Choose by Semantics
 
 ```rust
-// At minimum, public types should have:
+// A plain value type may reasonably provide:
 #[derive(Debug, Clone, PartialEq)]
 pub struct MyType { ... }
 
-// Add based on use case:
+// Add only based on semantics and use case:
 // + Eq, Hash       → for HashMap keys
 // + Ord, PartialOrd → for BTreeMap, sorting
 // + Default        → for Option::unwrap_or_default()
@@ -164,3 +166,5 @@ pub struct MyType { ... }
 - [api-default-impl](./api-default-impl.md) - Implementing Default
 - [doc-examples-section](./doc-examples-section.md) - Documenting trait implementations
 - [type-display-vs-debug](./type-display-vs-debug.md) - Display vs Debug responsibilities
+- [trait-defensive-impls](./trait-defensive-impls.md) - review manual trait implementations as types evolve
+- [obs-no-sensitive-data](./obs-no-sensitive-data.md) - redact sensitive Debug and Display output

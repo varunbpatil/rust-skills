@@ -1,6 +1,6 @@
 # async-fn-in-trait
 
-> Use native `async fn` in traits (stable 1.75) instead of the `async_trait` macro
+> Prefer native `async fn` in traits for static dispatch; use an object-safe alternative for `dyn Trait`
 
 ## Why It Matters
 
@@ -12,21 +12,26 @@ Since Rust 1.75, you can write `async fn` directly inside trait definitions (AFI
 // requires async_trait crate; boxes every future on the heap
 use async_trait::async_trait;
 
+#[derive(Debug)]
+enum RepoError {
+    Unavailable,
+}
+
 #[async_trait]
 trait Repo {
-    async fn get(&self, id: u64) -> anyhow::Result<String>;
-    async fn save(&self, value: String) -> anyhow::Result<()>;
+    async fn get(&self, id: u64) -> Result<String, RepoError>;
+    async fn save(&self, value: String) -> Result<(), RepoError>;
 }
 
 struct PgRepo;
 
 #[async_trait]
 impl Repo for PgRepo {
-    async fn get(&self, id: u64) -> anyhow::Result<String> {
+    async fn get(&self, id: u64) -> Result<String, RepoError> {
         Ok(format!("row-{id}"))
     }
 
-    async fn save(&self, value: String) -> anyhow::Result<()> {
+    async fn save(&self, value: String) -> Result<(), RepoError> {
         let _ = value;
         Ok(())
     }
@@ -37,19 +42,24 @@ impl Repo for PgRepo {
 
 ```rust
 // native async fn in traits — no macro, no boxing
+#[derive(Debug)]
+enum RepoError {
+    Unavailable,
+}
+
 trait Repo {
-    async fn get(&self, id: u64) -> anyhow::Result<String>;
-    async fn save(&self, value: String) -> anyhow::Result<()>;
+    async fn get(&self, id: u64) -> Result<String, RepoError>;
+    async fn save(&self, value: String) -> Result<(), RepoError>;
 }
 
 struct PgRepo;
 
 impl Repo for PgRepo {
-    async fn get(&self, id: u64) -> anyhow::Result<String> {
+    async fn get(&self, id: u64) -> Result<String, RepoError> {
         Ok(format!("row-{id}"))
     }
 
-    async fn save(&self, value: String) -> anyhow::Result<()> {
+    async fn save(&self, value: String) -> Result<(), RepoError> {
         let _ = value;
         Ok(())
     }
@@ -61,45 +71,56 @@ impl Repo for PgRepo {
 **Caveat 1 — not dyn-compatible.** Native async fn in traits is not yet object-safe. You cannot write `Box<dyn Repo>` with the definition above. For dynamic dispatch you have two options:
 
 - Keep `#[async_trait]` (it boxes the future, which makes the trait object-safe).
-- Use the `trait-variant` crate's `#[trait_variant::make]` macro, which generates a boxed-future variant alongside your native async trait.
+- Write an object-safe trait whose methods return `Pin<Box<dyn Future<...>>>`.
 
 ```rust
-// using trait-variant to get both a static and a dyn-compatible variant
-#[trait_variant::make(RepoSend: Send)]
-trait Repo {
-    async fn get(&self, id: u64) -> anyhow::Result<String>;
+#[derive(Debug)]
+enum RepoError {
+    Unavailable,
 }
 
-// `RepoSend` is the Send-bounded version; it IS dyn-compatible via boxing
-fn make_repo() -> Box<dyn RepoSend> {
-    // ...
-    # unimplemented!()
+// trait-variant adds Send bounds; it does not make an async trait dyn-compatible
+#[trait_variant::make(RepoSend: Send)]
+trait Repo {
+    async fn get(&self, id: u64) -> Result<String, RepoError>;
 }
+
+// `RepoSend` is the Send-bounded version; neither trait is dyn-compatible.
 ```
 
 **Caveat 2 — futures are not `Send` by default.** On a multi-threaded Tokio runtime, spawned tasks require `Send` futures. The auto-generated future from a native `async fn` in a trait captures `&self` but does not promise `Send`. If you need `Send`, either:
 
 - Use `#[trait_variant::make(TraitNameSend: Send)]` from the `trait-variant` crate to generate a `Send`-bounded variant.
-- Bound the return type explicitly: `fn get(&self, id: u64) -> impl Future<Output = anyhow::Result<String>> + Send`.
+- Bound the return type explicitly: `fn get(&self, id: u64) -> impl Future<Output = Result<String, RepoError>> + Send`.
 
 ```rust
 // explicit Send bound on the return future
+use std::future::Future;
+
+#[derive(Debug)]
+enum RepoError {
+    Unavailable,
+}
+
 trait Repo {
-    fn get(&self, id: u64) -> impl Future<Output = anyhow::Result<String>> + Send;
+    fn get(&self, id: u64) -> impl Future<Output = Result<String, RepoError>> + Send;
 }
 ```
 
+If this trait is an application port, make `RepoError` an application-owned, port-specific error. An adapter maps driver failures into it; a service may map it again to a use-case error. See [proj-ports-adapters](proj-ports-adapters.md).
+
 ## When to Use Each Approach
 
-| Scenario | Recommended approach |
-|---|---|
-| Static dispatch only (generics, `impl Trait`) | Native `async fn` in trait |
-| Need `dyn Trait` | `#[async_trait]` or `trait-variant` |
-| Multi-threaded Tokio, spawned tasks | `trait-variant` `Send` variant or explicit `+ Send` |
-| Single-threaded runtime / `LocalSet` | Native `async fn` in trait (no `Send` needed) |
+| Scenario                                      | Recommended approach                                  |
+| --------------------------------------------- | ----------------------------------------------------- |
+| Static dispatch only (generics, `impl Trait`) | Native `async fn` in trait                            |
+| Need `dyn Trait`                              | `#[async_trait]` or an object-safe boxed-future trait |
+| Multi-threaded Tokio, spawned tasks           | `trait-variant` `Send` variant or explicit `+ Send`   |
+| Single-threaded runtime / `LocalSet`          | Native `async fn` in trait (no `Send` needed)         |
 
 ## See Also
 
 - [anti-type-erasure](anti-type-erasure.md) - prefer `impl Trait` over `Box<dyn Trait>` when possible
 - [async-async-fn-bounds](async-async-fn-bounds.md) - use `AsyncFn` bounds for higher-order async functions
 - [async-tokio-runtime](async-tokio-runtime.md) - use Tokio for production async runtime
+- [proj-ports-adapters](proj-ports-adapters.md) - define ports and error boundaries

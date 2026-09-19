@@ -63,14 +63,17 @@ pub unsafe fn process(ptr: *const u8, len: usize) -> Vec<u8> {
 
 ## Key Points
 
-- **2024 edition `unsafe_op_in_unsafe_fn`**: even inside an `unsafe fn`, each unsafe operation now needs its own `unsafe {}`. This is a hard error in Rust 2024.
+- **2024 edition `unsafe_op_in_unsafe_fn`**: unsafe operations inside an
+  `unsafe fn` require explicit `unsafe {}` blocks to satisfy the edition's
+  default lint. Projects commonly deny this lint in CI; the edition change is a
+  lint-level change, not a new type-system prohibition.
 - A safe wrapper around a small `unsafe {}` is almost always preferable to exposing the entire function as `unsafe fn`.
 - Each small unsafe block needs its own `// SAFETY:` comment (see `unsafe-safety-comment`).
-- If multiple consecutive lines are all unsafe for the *same* invariant reason, a single block covering only those lines is acceptable.
+- If multiple consecutive lines are all unsafe for the _same_ invariant reason, a single block covering only those lines is acceptable.
 
 ## When a Larger Block Is Acceptable
 
-If two unsafe operations share the *exact same precondition* and separating them would require re-stating the identical justification, a single block covering both is fine — but it should still be the minimum necessary scope.
+If two unsafe operations share the _exact same precondition_ and separating them would require re-stating the identical justification, a single block covering both is fine — but it should still be the minimum necessary scope.
 
 ## See Also
 

@@ -1,6 +1,8 @@
 /target
 /examples
 manifest.json
+generation-stats.json
+__pycache__/
 check*.json
 check*.err
 suspects.txt

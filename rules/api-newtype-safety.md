@@ -27,7 +27,7 @@ add_user_to_group(user.created_at, user.group_id);  // Compiles fine!
 
 ## Good
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct UserId(u64);
 
@@ -78,7 +78,7 @@ struct ProductId(u64);
 
 ## Constructor Patterns
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Email(String);
 
@@ -91,7 +91,7 @@ impl Email {
             Err(EmailError::InvalidFormat)
         }
     }
-    
+
     /// Returns the email as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -104,7 +104,7 @@ let email = Email::new("user@example.com")?;  // Must go through validation
 
 ## Zero-Cost Abstraction
 
-```rust
+```rust,ignore
 use std::mem::size_of;
 
 #[derive(Clone, Copy)]

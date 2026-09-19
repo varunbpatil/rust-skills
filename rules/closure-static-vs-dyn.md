@@ -4,7 +4,12 @@
 
 ## Why It Matters
 
-A generic parameter `F: Fn(…) -> …` (or `impl Fn`) monomorphizes at each call site: the compiler emits a specialized copy of the function, enabling inlining and zero-cost dispatch. The trade-off is binary bloat when many different closure types are substituted. `&dyn Fn`/`Box<dyn Fn>` share a single compiled copy via a vtable, which reduces code size and is the only option for storing heterogeneous closures (e.g. an event handler registry). Choose by profiling requirements, not habit.
+A generic parameter `F: Fn(…) -> …` (or `impl Fn`) uses static dispatch and
+is monomorphized for each concrete callback type that is instantiated. That
+enables inlining, but many callback types can increase code size. `&dyn Fn` and
+`Box<dyn Fn>` use vtable dispatch, allowing one non-generic function body to
+accept different callback types and allowing heterogeneous callbacks to be
+stored behind pointers. Choose by ownership, storage, and measured trade-offs.
 
 ## Bad
 
@@ -57,7 +62,7 @@ fn demo() {
     let doubled = transform(&[1, 2, 3], |x| x * 2);
     assert_eq!(doubled, vec![2, 4, 6]);
 
-    // Dynamic dispatch — one compiled copy, heterogeneous handlers.
+    // Dynamic dispatch and heterogeneous stored handlers.
     let mut reg = Registry::new();
     reg.register(|e| println!("logger: {e}"));
     reg.register(|e| println!("metrics: {e}"));
@@ -67,13 +72,13 @@ fn demo() {
 
 ## Decision Table
 
-| Situation | Use |
-|-----------|-----|
-| Hot inner loop, single call site | `impl Fn` / generic `F: Fn` |
-| Callback stored in a struct field | `Box<dyn Fn>` |
-| Collection of mixed closures | `Vec<Box<dyn Fn(…)>>` |
-| Pass-through, one level deep, not stored | `&dyn Fn` (avoids allocation) |
-| Called across an `await` point | `Box<dyn Fn + Send>` |
+| Situation                                | Use                                           |
+| ---------------------------------------- | --------------------------------------------- |
+| Hot inner loop, single call site         | `impl Fn` / generic `F: Fn`                   |
+| Callback stored in a struct field        | `Box<dyn Fn>`                                 |
+| Collection of mixed closures             | `Vec<Box<dyn Fn(…)>>`                         |
+| Pass-through, one level deep, not stored | `&dyn Fn` (avoids allocation)                 |
+| Owned by a `Send` future across `.await` | `Box<dyn Fn() + Send>` (add `Sync` if shared) |
 
 **Note:** `&dyn Fn` is useful to avoid an allocation when you only need to borrow the closure for one call and do not store it. Pass `&closure` (reference to a stack-allocated closure) rather than boxing.
 

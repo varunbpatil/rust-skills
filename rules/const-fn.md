@@ -54,7 +54,11 @@ const ALIGNED: usize = align_up(13, 8); // 16, computed at compile time
 
 ## Notes
 
-Adding `const` to a function is a backwards-compatible, non-breaking change for library authors. Start with `const fn` for any pure function without heap allocation or dynamic dispatch; you can always remove it if you later need a capability that is not yet `const`-stable. Avoid `const fn` for functions that call unstable `const` features not yet stabilized on the channel you target.
+Adding `const` to an existing function is generally backward-compatible, but
+removing `const` later is a breaking change for callers that use it in const
+contexts. Expose `const fn` when compile-time use is part of the intended API
+and its implementation can remain within stable const capabilities; purity
+alone does not guarantee that every operation is const-stable.
 
 ## See Also
 

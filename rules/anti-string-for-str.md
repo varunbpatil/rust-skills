@@ -48,12 +48,12 @@ impl Config {
     fn set_name(&mut self, name: &str) {
         self.name = name.to_string();
     }
-    
+
     // Or accept owned String if caller usually has one
     fn set_name_owned(&mut self, name: String) {
         self.name = name;
     }
-    
+
     // Or be generic
     fn set_name_into(&mut self, name: impl Into<String>) {
         self.name = name.into();
@@ -100,13 +100,13 @@ process(&some_string);
 
 ## Similar Anti-patterns
 
-| Anti-pattern | Better |
-|--------------|--------|
-| `&String` | `&str` |
-| `&Vec<T>` | `&[T]` |
-| `&Box<T>` | `&T` |
-| `&PathBuf` | `&Path` |
-| `&OsString` | `&OsStr` |
+| Anti-pattern | Better   |
+| ------------ | -------- |
+| `&String`    | `&str`   |
+| `&Vec<T>`    | `&[T]`   |
+| `&Box<T>`    | `&T`     |
+| `&PathBuf`   | `&Path`  |
+| `&OsString`  | `&OsStr` |
 
 ## Clippy Detection
 
@@ -117,6 +117,6 @@ ptr_arg = "warn"  # Catches &String, &Vec, &PathBuf
 
 ## See Also
 
-- [anti-vec-for-slice](./anti-vec-for-slice.md) - Similar pattern for Vec
-- [own-slice-over-vec](./own-slice-over-vec.md) - Slice patterns
-- [api-impl-asref](./api-impl-asref.md) - AsRef pattern
+- [own-slice-over-vec](./own-slice-over-vec.md) - Similar pattern for Vec
+- [api-impl-asref](./api-impl-asref.md) - accept multiple borrowed representations when useful
+- [own-borrow-over-clone](./own-borrow-over-clone.md) - borrow when ownership is unnecessary

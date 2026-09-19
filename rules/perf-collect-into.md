@@ -1,10 +1,12 @@
 # perf-collect-into
 
-> Use collect_into for reusing containers
+> Use `Extend::extend` to collect into reusable containers on stable Rust
 
 ## Why It Matters
 
-`collect_into()` allows collecting iterator results into an existing collection, reusing its allocation. This avoids the allocation that `collect()` would make for a new collection.
+`Extend::extend` inserts iterator results into an existing collection and can
+reuse retained capacity. The similarly named `Iterator::collect_into` remains
+unstable on Rust 1.98, so stable APIs and examples should use `extend`.
 
 > **Note:** `collect_into` is currently **nightly-only** (requires `#![feature(iter_collect_into)]`, tracking issue [#94780](https://github.com/rust-lang/rust/issues/94780)). On stable Rust, use `extend()` instead — see the Stable Alternative section below.
 
@@ -34,13 +36,15 @@ fn filter_loop(data: &[Vec<i32>]) {
 }
 ```
 
-## Good (Stable: extend)
+## Good
+
+### Stable: `extend`
 
 ```rust
 // Stable approach: reuse buffer with extend
 fn filter_loop(data: &[Vec<i32>]) {
     let mut buffer = Vec::new();
-    
+
     for batch in data {
         buffer.clear();  // Keep allocation
         buffer.extend(
@@ -61,7 +65,7 @@ fn filter_loop(data: &[Vec<i32>]) {
 // Reuse buffer with collect_into (nightly only)
 fn filter_loop_nightly(data: &[Vec<i32>]) {
     let mut buffer = Vec::new();
-    
+
     for batch in data {
         buffer.clear();  // Keep allocation
         batch.iter()
@@ -81,7 +85,7 @@ On stable Rust, `extend()` is equivalent and idiomatic:
 ```rust
 fn reuse_buffer(data: &[Vec<i32>]) {
     let mut buffer = Vec::new();
-    
+
     for batch in data {
         buffer.clear();
         buffer.extend(batch.iter().filter(|&&x| x > 0).copied());
@@ -96,44 +100,42 @@ fn reuse_buffer(data: &[Vec<i32>]) {
 fn transform_batches(batches: &[Vec<RawData>]) -> Vec<ProcessedData> {
     let mut temp = Vec::new();
     let mut all_results = Vec::new();
-    
+
     for batch in batches {
         temp.clear();
-        batch.iter()
-            .map(ProcessedData::from)
-            .collect_into(&mut temp);
-        
+        temp.extend(batch.iter().map(ProcessedData::from));
+
         // Process temp, append to results
         all_results.extend(temp.drain(..).filter(|p| p.is_valid()));
     }
-    
+
     all_results
 }
 ```
 
 ## Supported Collections
 
-`collect_into()` works with any type implementing `Extend`:
+`extend()` works with types implementing `Extend`:
 
 ```rust
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 let mut vec = Vec::new();
 let mut set = HashSet::new();
 let mut deque = VecDeque::new();
 
-(0..10).collect_into(&mut vec);
-(0..10).collect_into(&mut set);
-(0..10).collect_into(&mut deque);
+vec.extend(0..10);
+set.extend(0..10);
+deque.extend(0..10);
 ```
 
 ## Comparison
 
-| Method | Allocation | Buffer Reuse |
-|--------|------------|--------------|
-| `.collect()` | New each time | No |
-| `.collect_into(&mut buf)` | Reuses buffer | Yes |
-| `buf.extend(iter)` | Reuses buffer | Yes |
+| Method                              | Allocation    | Buffer Reuse |
+| ----------------------------------- | ------------- | ------------ |
+| `.collect()`                        | New each time | No           |
+| `.collect_into(&mut buf)` (nightly) | Reuses buffer | Yes          |
+| `buf.extend(iter)`                  | Reuses buffer | Yes          |
 
 ## See Also
 

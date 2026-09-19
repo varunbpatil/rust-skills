@@ -1,10 +1,14 @@
 # opt-inline-never-cold
 
-> Use `#[inline(never)]` and `#[cold]` for error paths and rarely-executed code
+> Split measured cold paths with `#[cold]`; add `#[inline(never)]` only when justified
 
 ## Why It Matters
 
-Inlining error handling code into hot paths wastes instruction cache space and can prevent other optimizations. `#[inline(never)]` keeps cold code out of the hot path. `#[cold]` tells the compiler this branch is unlikely, enabling better branch prediction hints and code layout.
+Large error handling on a measured hot path can consume instruction-cache space.
+Extracting it into a `#[cold]` function communicates that the function is
+unlikely to execute and influences optimization and layout. Add
+`#[inline(never)]` only when inspection or measurement shows that the compiler's
+inlining decision is harmful; `#[cold]` alone is often sufficient.
 
 ## Bad
 
@@ -17,7 +21,7 @@ fn process_data(data: &[u8]) -> Result<Output, Error> {
             suggestions: vec!["Check input", "Validate before calling"],
         });
     }
-    
+
     // Hot path - now polluted with error construction code
     do_processing(data)
 }
@@ -30,7 +34,7 @@ fn process_data(data: &[u8]) -> Result<Output, Error> {
     if data.is_empty() {
         return Err(empty_data_error());  // Cold path stays small
     }
-    
+
     do_processing(data)
 }
 
@@ -70,6 +74,8 @@ fn get_index(&self, idx: usize) -> &T {
     if idx >= self.len {
         cold_out_of_bounds(idx, self.len);
     }
+    // SAFETY: the type invariant guarantees `ptr` is valid for `len` elements,
+    // and the check above proves `idx < len`.
     unsafe { self.ptr.add(idx).as_ref().unwrap() }
 }
 
@@ -93,7 +99,7 @@ impl MyError {
             context: get_context(),
         }
     }
-    
+
     #[cold]
     pub fn validation_error(msg: &str, field: &str) -> Self {
         MyError::Validation {
@@ -114,7 +120,7 @@ fn read_config(path: &Path) -> Result<Config, MyError> {
 ## likely/unlikely Hints
 
 ```rust
-// Nightly: std::hint likely/unlikely branch hints (still unstable as of Rust 1.96)
+// Nightly: std::hint likely/unlikely branch hints (still unstable as of Rust 1.98)
 // (std::hint::cold_path() is stable since 1.95 for marking the rare branch)
 #![feature(likely_unlikely)]
 use std::hint::{likely, unlikely};
@@ -123,9 +129,9 @@ fn process(data: Option<&Data>) -> Result<Output, Error> {
     if unlikely(data.is_none()) {
         return cold_none_error();
     }
-    
+
     let data = data.unwrap();
-    
+
     if likely(data.is_valid()) {
         fast_process(data)
     } else {
@@ -133,21 +139,21 @@ fn process(data: Option<&Data>) -> Result<Output, Error> {
     }
 }
 
-// Stable alternative: structure code so hot path is "fall through"
+// Stable alternative for clear flow. The early return itself is not a
+// branch-likelihood annotation; use #[cold] or cold_path() for that.
 fn process(data: Option<&Data>) -> Result<Output, Error> {
     let data = match data {
         Some(d) => d,
-        None => return cold_none_error(),  // Early return = unlikely hint
+        None => return cold_none_error(),
     };
-    
-    // Compiler assumes code after early returns is "hot"
+
     fast_process(data)
 }
 ```
 
 ## Pattern: Extract Cold Code
 
-```rust
+```rust,ignore
 // Before: cold code inline
 fn hot_function(x: i32) -> i32 {
     if x < 0 {

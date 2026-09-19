@@ -43,9 +43,8 @@ if let Some(value) = map.get("key") {
 }
 
 // Channel with proper handling
-match receiver.recv() {
-    Ok(msg) => handle(msg),
-    Err(_) => break,  // Channel closed
+while let Ok(msg) = receiver.recv() {
+    handle(msg);
 }
 ```
 
@@ -71,7 +70,7 @@ if map.contains_key("key") {
 // Better: use if-let or entry API instead
 
 // 4. Truly impossible cases with proof comment
-let last = vec.pop().unwrap();  
+let last = vec.pop().unwrap();
 // OK only if you just checked !vec.is_empty()
 // Better: use last() or pattern match
 ```
@@ -140,4 +139,5 @@ fn tests_only() { }
 
 - [err-question-mark](err-question-mark.md) - Use ? for propagation
 - [err-result-over-panic](err-result-over-panic.md) - Return Result instead of panicking
-- [anti-expect-lazy](anti-expect-lazy.md) - Don't use expect for recoverable errors
+- [err-no-unwrap-prod](err-no-unwrap-prod.md) - avoid unchecked Option and Result extraction
+- [err-expect-bugs-only](err-expect-bugs-only.md) - Don't use expect for recoverable errors

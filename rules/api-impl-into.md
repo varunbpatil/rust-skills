@@ -1,10 +1,15 @@
 # api-impl-into
 
-> Accept `impl Into<T>` for flexible APIs, implement `From<T>` for conversions
+> Accept `impl Into<T>` when ownership conversion materially improves the API
 
 ## Why It Matters
 
-APIs that accept `impl Into<T>` are ergonomic—callers can pass the target type directly or any type that converts to it. This reduces boilerplate `.into()` calls at call sites. Implement `From<T>` rather than `Into<T>` because `From` implies `Into` through a blanket implementation.
+APIs that accept `impl Into<T>` let callers pass the target type or another type
+with an infallible conversion. This is useful for constructors and builders that
+store an owned value. It also makes the function generic, which can increase
+monomorphization and sometimes worsen inference; accept `T` directly when the
+extra input forms do not materially help callers. Implement `From<T>` rather
+than `Into<T>` because `From` provides `Into` through a blanket implementation.
 
 ## Bad
 
@@ -47,7 +52,7 @@ set_name(format!("User-{}", id)); // String from format!
 
 ## Implement From, Not Into
 
-```rust
+```rust,ignore
 struct UserId(u64);
 
 // ✅ Implement From
@@ -77,7 +82,7 @@ log_message("literal");           // &str
 log_message(String::from("own")); // String
 log_message(Cow::from("cow"));    // Cow<str>
 
-// Path-like types  
+// Path-like types
 fn read_file(path: impl AsRef<Path>) { ... }  // AsRef for borrowed access
 fn write_file(path: impl Into<PathBuf>) { ... }  // Into when storing
 
@@ -107,7 +112,7 @@ fn store_data(data: impl Into<Vec<u8>>) {
 
 ## When NOT to Use impl Into
 
-```rust
+```rust,ignore
 // ❌ Trait objects need Sized
 fn process(handler: impl Into<Box<dyn Handler>>) { }
 // Better: just take Box<dyn Handler> directly
@@ -117,9 +122,11 @@ struct Node {
     children: Vec<impl Into<Node>>,  // Error: impl Trait not allowed here
 }
 
-// ❌ Performance-critical hot paths (minor overhead of trait dispatch)
+// Consider a concrete type in hot or widely instantiated APIs. `impl Into` uses
+// static dispatch, not trait-object dispatch, but each input type can create a
+// separate monomorphization.
 fn hot_path(value: impl Into<u64>) {
-    // Consider taking u64 directly if called billions of times
+    // Measure code size and runtime behavior before specializing the API.
 }
 
 // ❌ When you need to name the type
@@ -141,7 +148,7 @@ impl Config {
             path: PathBuf::new(),
         }
     }
-    
+
     fn path(mut self, path: impl Into<PathBuf>) -> Self {
         self.path = path.into();
         self

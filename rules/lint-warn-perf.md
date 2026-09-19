@@ -6,7 +6,19 @@
 
 The `clippy::perf` lint group catches performance anti-patterns—inefficient allocations, unnecessary copies, suboptimal API usage. While not all performance issues are critical, avoiding obvious inefficiencies is good practice.
 
-## Configuration
+## Bad
+
+Do not depend on reviewers to rediscover every well-known allocation or copying
+pattern manually.
+
+```toml
+[lints.clippy]
+perf = "allow"
+```
+
+## Good
+
+### Configuration
 
 ```rust
 // In lib.rs or main.rs
@@ -40,7 +52,7 @@ for x in vec![1, 2, 3] { }  // Use array: [1, 2, 3]
 
 ### Inefficient Operations
 
-```rust
+```rust,ignore
 // WARN: Single-character string patterns
 s.starts_with("x")  // Use char: 'x'
 s.contains("a")     // Use char: 'a'
@@ -55,7 +67,7 @@ if x > i32::MAX - y { i32::MAX } else { x + y }
 
 ### Collection Inefficiencies
 
-```rust
+```rust,ignore
 // WARN: extend with a single element
 vec.extend(std::iter::once(item));  // Use: vec.push(item)
 
@@ -68,20 +80,20 @@ let s = format!("{}{}", a, b);  // When both are &str, use: a.to_owned() + b
 
 ## Notable Lints in This Group
 
-| Lint | Improvement |
-|------|-------------|
-| `box_collection` | Use `Vec<T>` not `Box<Vec<T>>` |
-| `iter_nth` | Use `.get(n)` or `.next()` |
-| `large_enum_variant` | Box large variants |
-| `manual_memcpy` | Use slice copy methods |
-| `redundant_allocation` | Remove double boxing |
-| `single_char_pattern` | Use `char` not `&str` |
-| `slow_vector_initialization` | Use `vec![0; n]` |
-| `unnecessary_to_owned` | Remove redundant `.to_owned()` |
+| Lint                         | Improvement                    |
+| ---------------------------- | ------------------------------ |
+| `box_collection`             | Use `Vec<T>` not `Box<Vec<T>>` |
+| `iter_nth`                   | Use `.get(n)` or `.next()`     |
+| `large_enum_variant`         | Box large variants             |
+| `manual_memcpy`              | Use slice copy methods         |
+| `redundant_allocation`       | Remove double boxing           |
+| `single_char_pattern`        | Use `char` not `&str`          |
+| `slow_vector_initialization` | Use `vec![0; n]`               |
+| `unnecessary_to_owned`       | Remove redundant `.to_owned()` |
 
 ## Examples
 
-```rust
+```rust,ignore
 // Before (perf warnings)
 fn process(input: &str) -> String {
     let parts: Vec<_> = input.split(",").collect();

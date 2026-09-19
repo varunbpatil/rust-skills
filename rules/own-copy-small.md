@@ -1,10 +1,15 @@
 # own-copy-small
 
-> Implement `Copy` for small, simple types
+> Implement `Copy` for small value types with implicit-copy semantics
 
 ## Why It Matters
 
-Types that implement `Copy` are implicitly duplicated on assignment instead of moved. This eliminates the need for explicit `.clone()` calls and makes the code more ergonomic. For small types (generally ≤16 bytes), copying is as fast or faster than moving a pointer.
+Types that implement `Copy` are implicitly duplicated on assignment instead of
+moved. This is ergonomic for plain values such as coordinates and numeric IDs,
+where an implicit duplicate is unsurprising. Size matters, but there is no
+universal byte cutoff: semantics, copy frequency, public-API compatibility, and
+measured cost matter too. Do not add `Copy` to resource handles or types whose
+duplication should remain visible even when all fields technically permit it.
 
 ## Bad
 
@@ -53,6 +58,7 @@ let d2 = distance(origin, target); // Still works!
 ## Copy Requirements
 
 A type can implement `Copy` only if:
+
 1. All fields implement `Copy`
 2. No custom `Drop` implementation
 3. No heap-allocated data (`String`, `Vec`, `Box`, etc.)
@@ -83,13 +89,14 @@ impl Drop for FileHandle {
 }
 ```
 
-## Size Guidelines
+## Decision Guidelines
 
-| Size | Recommendation |
-|------|----------------|
-| ≤ 16 bytes | Implement `Copy` |
-| 17-64 bytes | Consider `Copy`, benchmark if critical |
-| > 64 bytes | Probably don't, prefer references |
+| Property                                            | Guidance                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| Plain, small value with cheap implicit duplication  | Usually implement `Copy`                                      |
+| Resource identity or duplication should be explicit | Keep only `Clone`, or neither                                 |
+| Large value copied in a hot path                    | Prefer borrowing and measure                                  |
+| Public type likely to gain non-`Copy` fields        | Consider leaving `Copy` off; removing it later breaks callers |
 
 ```rust
 use std::mem::size_of;
@@ -100,15 +107,16 @@ struct SmallId(u64); // 8 bytes ✅
 #[derive(Clone, Copy)]
 struct Rect { x: f32, y: f32, w: f32, h: f32 } // 16 bytes ✅
 
-#[derive(Clone)] // No Copy - 72 bytes
+#[derive(Clone)] // Keep an expensive duplication explicit
 struct Transform {
-    matrix: [[f64; 3]; 3], // 72 bytes, too large
+    matrix: [[f64; 3]; 3],
 }
 ```
 
 ## Common Copy Types
 
 Standard library types that are `Copy`:
+
 - All primitives: `i32`, `f64`, `bool`, `char`, etc.
 - Shared references: `&T` (note: `&mut T` is NOT `Copy` — copying a mutable reference would alias it, so it is reborrowed instead)
 - Raw pointers: `*const T`, `*mut T`

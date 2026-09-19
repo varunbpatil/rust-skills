@@ -66,7 +66,7 @@ handle.await?;  // Task completes cleanly
 
 ## CancellationToken API
 
-```rust
+```rust,ignore
 use tokio_util::sync::CancellationToken;
 
 // Create token
@@ -92,10 +92,10 @@ let child = token.child_token();
 
 ## Hierarchical Cancellation
 
-```rust
+```rust,ignore
 async fn run_server(shutdown: CancellationToken) {
     let listener = TcpListener::bind("0.0.0.0:8080").await?;
-    
+
     loop {
         tokio::select! {
             _ = shutdown.cancelled() => {
@@ -110,7 +110,7 @@ async fn run_server(shutdown: CancellationToken) {
             }
         }
     }
-    
+
     // Child tokens auto-cancelled when we exit
 }
 
@@ -131,12 +131,12 @@ async fn handle_connection(socket: TcpStream, token: CancellationToken) {
 
 ## Graceful Shutdown Pattern
 
-```rust
+```rust,ignore
 use tokio::signal;
 
 async fn main() -> Result<()> {
     let shutdown = CancellationToken::new();
-    
+
     // Spawn signal handler
     let shutdown_trigger = shutdown.clone();
     tokio::spawn(async move {
@@ -144,17 +144,17 @@ async fn main() -> Result<()> {
         println!("Received Ctrl+C, initiating shutdown...");
         shutdown_trigger.cancel();
     });
-    
+
     // Run application with shutdown token
     run_app(shutdown).await
 }
 
 async fn run_app(shutdown: CancellationToken) -> Result<()> {
     let mut tasks = JoinSet::new();
-    
+
     tasks.spawn(worker_task(shutdown.child_token()));
     tasks.spawn(server_task(shutdown.child_token()));
-    
+
     // Wait for shutdown or task completion
     tokio::select! {
         _ = shutdown.cancelled() => {
@@ -165,13 +165,13 @@ async fn run_app(shutdown: CancellationToken) -> Result<()> {
             result??;
         }
     }
-    
+
     // Wait for remaining tasks with timeout
     tokio::time::timeout(
         Duration::from_secs(30),
         async { while tasks.join_next().await.is_some() {} }
     ).await.ok();
-    
+
     Ok(())
 }
 ```
@@ -201,3 +201,4 @@ drop(guard);  // Automatically calls token.cancel()
 - [async-joinset-structured](./async-joinset-structured.md) - Managing multiple tasks
 - [async-select-racing](./async-select-racing.md) - select! for cancellation
 - [async-tokio-runtime](./async-tokio-runtime.md) - Runtime shutdown
+- [security-service-resilience](./security-service-resilience.md) - define bounded, graceful failure handling

@@ -4,12 +4,17 @@
 
 ## Why It Matters
 
-`ArrayVec` from the `arrayvec` crate provides Vec-like API with a compile-time maximum capacity, storing all elements inline on the stack. Unlike `SmallVec` which can spill to heap, `ArrayVec` guarantees no heap allocation—if you exceed capacity, it returns an error or panics. This is ideal for embedded systems, real-time code, or when you have a hard upper bound.
+`ArrayVec` from the `arrayvec` crate provides a Vec-like API with a compile-time
+maximum capacity and stores elements inline wherever the `ArrayVec` value lives
+(which is not necessarily the stack). Unlike `SmallVec`, the collection itself
+does not spill to a separate heap allocation; exceeding capacity returns an
+error through fallible methods or panics through infallible ones. Element types
+may of course allocate internally.
 
 ## Bad
 
 ```rust
-// Vec always heap-allocates, even for small collections
+// A non-empty Vec stores elements in a separate heap allocation.
 fn parse_options(input: &str) -> Vec<Option> {
     let mut options = Vec::new();  // Heap allocation
     for part in input.split(',').take(8) {  // Know we never exceed 8
@@ -31,7 +36,7 @@ fn get_flags() -> SmallVec<[Flag; 4]> {
 ```rust
 use arrayvec::ArrayVec;
 
-// Guaranteed no heap allocation
+// The collection's element storage is inline; element values may allocate.
 fn parse_options(input: &str) -> ArrayVec<Option<u32>, 8> {
     let mut options = ArrayVec::new();
     for part in input.split(',') {
@@ -43,7 +48,6 @@ fn parse_options(input: &str) -> ArrayVec<Option<u32>, 8> {
 }
 
 // For embedded/no_std contexts
-#[no_std]
 fn collect_readings() -> ArrayVec<SensorReading, 16> {
     let mut readings = ArrayVec::new();
     for sensor in SENSORS.iter() {
@@ -55,11 +59,11 @@ fn collect_readings() -> ArrayVec<SensorReading, 16> {
 
 ## ArrayVec vs SmallVec vs Vec
 
-| Type | Stack | Heap | Use When |
-|------|-------|------|----------|
-| `Vec<T>` | Never | Always | Unknown size, may grow indefinitely |
-| `SmallVec<[T; N]>` | Up to N | Beyond N | Usually small, occasionally large |
-| `ArrayVec<T, N>` | Always | Never | Hard limit, no heap allowed |
+| Type               | Element storage  | Separate allocation                 | Use When                              |
+| ------------------ | ---------------- | ----------------------------------- | ------------------------------------- |
+| `Vec<T>`           | Out of line      | When non-zero capacity is allocated | Unknown size, may grow                |
+| `SmallVec<[T; N]>` | Inline through N | After spilling beyond N             | Usually small, occasionally large     |
+| `ArrayVec<T, N>`   | Inline           | Not for the collection's storage    | Hard limit, no allocation for storage |
 
 ## API Patterns
 
@@ -117,7 +121,7 @@ fn format_code(code: u32) -> ArrayString<16> {
 
 ## When NOT to Use ArrayVec
 
-```rust
+```rust,ignore
 // ❌ When size varies widely
 fn parse_json_array(json: &str) -> ArrayVec<Value, ???> {
     // What capacity? JSON arrays can be any size

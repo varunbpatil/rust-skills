@@ -51,7 +51,7 @@ fn set_status(status: Status) {
 
 // Can only pass valid values
 set_status(Status::Pending);  // OK
-set_status(Status::Aktivev);  // Compile error - typo caught!
+// set_status(Status::Aktivev);  // Would not compile: typo caught!
 
 // Configuration with typed builder
 struct Config {
@@ -77,7 +77,7 @@ enum Priority {
 
 impl FromStr for Priority {
     type Err = ParseError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "low" => Ok(Priority::Low),

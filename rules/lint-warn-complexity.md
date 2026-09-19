@@ -6,7 +6,19 @@
 
 The `clippy::complexity` lint group identifies unnecessarily complex code that can be simplified. Complex code is harder to read, maintain, and often hides bugs. Clippy suggests cleaner alternatives.
 
-## Configuration
+## Bad
+
+Leaving the group disabled lets avoidable control-flow and expression
+complexity accumulate without a consistent review signal.
+
+```toml
+[lints.clippy]
+complexity = "allow"
+```
+
+## Good
+
+### Configuration
 
 ```rust
 // In lib.rs or main.rs
@@ -24,7 +36,7 @@ complexity = "warn"
 
 ### Unnecessary Complexity
 
-```rust
+```rust,ignore
 // WARN: Overly complex boolean expression
 if !(x == 0) { }  // Use: if x != 0 { }
 
@@ -58,7 +70,7 @@ fn make_error() -> Box<dyn Error> {
 
 ### Overly Verbose Code
 
-```rust
+```rust,ignore
 // WARN: bind_instead_of_map
 option.and_then(|x| Some(x + 1))  // Use: option.map(|x| x + 1)
 
@@ -77,20 +89,20 @@ if condition {
 
 ## Notable Lints in This Group
 
-| Lint | Simplification |
-|------|---------------|
+| Lint                  | Simplification                             |
+| --------------------- | ------------------------------------------ |
 | `bind_instead_of_map` | Use `map` instead of `and_then(Some(...))` |
-| `bool_comparison` | `if x == true` → `if x` |
-| `clone_on_copy` | Remove `.clone()` for Copy types |
-| `filter_next` | Use `.find()` instead |
-| `option_map_unit_fn` | Use `if let` instead |
-| `search_is_some` | Use `.any()` or `.contains()` |
-| `unnecessary_cast` | Remove redundant casts |
-| `useless_conversion` | Remove `.into()` when types match |
+| `bool_comparison`     | `if x == true` → `if x`                    |
+| `clone_on_copy`       | Remove `.clone()` for Copy types           |
+| `filter_next`         | Use `.find()` instead                      |
+| `option_map_unit_fn`  | Use `if let` instead                       |
+| `search_is_some`      | Use `.any()` or `.contains()`              |
+| `unnecessary_cast`    | Remove redundant casts                     |
+| `useless_conversion`  | Remove `.into()` when types match          |
 
 ## Examples
 
-```rust
+```rust,ignore
 // Before (complexity warnings)
 fn find_positive(nums: &[i32]) -> Option<i32> {
     let filtered: Vec<_> = nums.iter()

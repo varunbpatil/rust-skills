@@ -80,13 +80,13 @@ impl Connection {
             _ => Err(Error::AlreadyConnected),
         }
     }
-    
+
     fn on_connected(&mut self, socket: TcpStream) {
         if let ConnectionState::Connecting { .. } = &self.state {
             self.state = ConnectionState::Connected { socket };
         }
     }
-    
+
     fn authenticate(&mut self, creds: Credentials) -> Result<(), Error> {
         match std::mem::replace(&mut self.state, ConnectionState::Disconnected) {
             ConnectionState::Connected { socket } => {
@@ -125,7 +125,7 @@ fn parse_config(s: &str) -> Result<Config, ParseError> { ... }
 
 ## Avoid Boolean Flags
 
-```rust
+```rust,ignore
 // Bad: boolean flags
 struct Task {
     is_running: bool,
@@ -150,6 +150,7 @@ struct Task {
 ## See Also
 
 - [api-typestate](./api-typestate.md) - Type-level state machines
+- [api-avoid-bool-params](./api-avoid-bool-params.md) - model behavior choices with enums instead of flags
 - [api-non-exhaustive](./api-non-exhaustive.md) - Forward-compatible enums
 - [type-option-nullable](./type-option-nullable.md) - Option for optional values
 - [pat-exhaustive-enum](./pat-exhaustive-enum.md) - Match owned enums exhaustively

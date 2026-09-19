@@ -1,24 +1,29 @@
 # api-impl-asref
 
-> Use `AsRef<T>` when you only need to borrow the inner data
+> Use `AsRef<T>` when several input representations need the same borrowed view
 
 ## Why It Matters
 
-`AsRef<T>` provides a cheap borrowed view of data without taking ownership or copying. Functions accepting `impl AsRef<T>` can work with multiple types that contain or represent `T`, making APIs flexible while avoiding unnecessary allocations. Use `AsRef` when you only need to read, `Into` when you need to own.
+`AsRef<T>` provides a cheap borrowed view without taking ownership or copying.
+It is useful when callers genuinely use several representations, as with path
+APIs. A plain `&str`, `&Path`, or `&[T]` is often clearer and already accepts
+owned containers through coercion; generic `AsRef` parameters can increase
+monomorphization and occasionally make inference less direct. Use `Into` when
+the callee needs to own the converted value.
 
 ## Bad
 
 ```rust
-// Forces callers to provide exact types
+// Concrete borrowed types are often already flexible through coercion.
 fn process_text(text: &str) { ... }
 fn read_file(path: &Path) { ... }
 
-// Can't call directly with owned types
+// These calls are idiomatic and do not allocate.
 let s = String::from("hello");
-process_text(&s);  // Works but verbose
+process_text(&s);
 
 let p = PathBuf::from("/file");
-read_file(&p);  // Works but verbose
+read_file(&p);
 read_file("/file");  // Error! &str != &Path
 ```
 
@@ -40,7 +45,7 @@ process_text("literal");        // &str
 process_text(String::from("owned"));  // String
 process_text(Cow::from("cow")); // Cow<str>
 
-read_file("/path/to/file");     // &str  
+read_file("/path/to/file");     // &str
 read_file(Path::new("/path"));  // &Path
 read_file(PathBuf::from("/path")); // PathBuf
 read_file(OsStr::new("/path")); // &OsStr
@@ -48,7 +53,7 @@ read_file(OsStr::new("/path")); // &OsStr
 
 ## AsRef vs Into vs Borrow
 
-```rust
+```rust,ignore
 // AsRef<T>: cheap borrow, no ownership transfer
 fn read(p: impl AsRef<Path>) {
     let path: &Path = p.as_ref();
@@ -97,7 +102,7 @@ greet(Name("Alice".into()));
 
 ## Common AsRef Implementations
 
-```rust
+```rust,ignore
 // Standard library provides many
 impl AsRef<str> for String { ... }
 impl AsRef<str> for str { ... }
@@ -113,17 +118,17 @@ impl AsRef<OsStr> for str { ... }
 
 ## When to Use Which
 
-| Trait | Use When |
-|-------|----------|
-| `&T` | Single type, simple API |
-| `AsRef<T>` | Read-only access, multiple input types |
-| `Into<T>` | Need to store/own the value |
-| `Borrow<T>` | HashMap/HashSet keys, Eq/Hash needed |
-| `Deref<Target=T>` | Smart pointer semantics |
+| Trait             | Use When                                                      |
+| ----------------- | ------------------------------------------------------------- |
+| `&T`              | Simple API; coercions already cover callers' owned containers |
+| `AsRef<T>`        | Read-only access where several representations are valuable   |
+| `Into<T>`         | Need to store/own the value                                   |
+| `Borrow<T>`       | HashMap/HashSet keys, Eq/Hash needed                          |
+| `Deref<Target=T>` | Smart pointer semantics                                       |
 
 ## Pattern: Optional AsRef Bound
 
-```rust
+```rust,ignore
 // When T itself might be passed
 fn process<T: AsRef<U>, U>(value: T) {
     let inner: &U = value.as_ref();

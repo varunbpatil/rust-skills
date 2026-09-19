@@ -8,6 +8,11 @@ Writing a proc-macro by hand-parsing `proc_macro::TokenStream` is fragile and ve
 
 Enable only the `syn` features you actually use. The `full` feature parses all Rust syntax but adds compile time; `derive` is sufficient for most `#[proc_macro_derive]` implementations.
 
+For derive macros with substantial nested attribute metadata,
+[`darling`](https://crates.io/crates/darling) can map `syn` input into typed
+configuration structures and combine errors. Direct `syn` parsing is clearer
+for small grammars and avoids another procedural-macro dependency.
+
 ## Bad
 
 ```rust

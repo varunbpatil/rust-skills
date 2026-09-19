@@ -1,10 +1,15 @@
 # opt-target-cpu
 
-> Use `target-cpu=native` for maximum performance on known deployment targets
+> Tune `target-cpu` only when the deployment CPU set is known and measured
 
 ## Why It Matters
 
-By default, Rust compiles for a generic x86-64 baseline (roughly Sandy Bridge era). Modern CPUs have SIMD extensions (AVX2, AVX-512), improved instructions, and micro-architectural optimizations that go unused. `target-cpu=native` enables all features of your current CPU, potentially unlocking significant speedups.
+Portable targets intentionally avoid instructions unavailable on their baseline
+CPUs. `target-cpu=native` enables features of the build machine and can help a
+measured workload, but the result may crash with an illegal instruction on an
+older deployment CPU and is not guaranteed faster. Use it for local builds or
+homogeneous fleets; for distributed binaries, choose an explicit supported
+baseline or use runtime feature detection with a scalar fallback.
 
 ## Bad
 
@@ -75,6 +80,9 @@ fn process_fast(data: &[u8]) -> u64 {
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
+/// # Safety
+///
+/// The current CPU must support AVX2.
 unsafe fn process_avx2(data: &[u8]) -> u64 {
     // an AVX2-optimized path would go here; delegate to the scalar version
     process_generic(data)

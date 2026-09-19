@@ -4,7 +4,10 @@
 
 ## Why It Matters
 
-Cloning allocates new memory and copies data, while borrowing is free. Unnecessary clones can significantly impact performance, especially in hot paths or with large data structures.
+Cloning duplicates a value and may allocate or deeply copy its contents;
+borrowing avoids duplication and usually gives the callee a more flexible API.
+The cost depends on the type, so avoid clones that ownership does not require
+and measure when performance matters.
 
 ## Bad
 
@@ -78,6 +81,7 @@ let y = x;  // Copy, not clone - this is fine
 ## Evidence
 
 From ripgrep's codebase - uses `Cow` to avoid clones:
+
 ```rust
 // https://github.com/BurntSushi/ripgrep/blob/master/crates/globset/src/pathutil.rs
 pub(crate) fn file_name<'a>(path: &Cow<'a, [u8]>) -> Option<Cow<'a, [u8]>> {
@@ -94,3 +98,4 @@ pub(crate) fn file_name<'a>(path: &Cow<'a, [u8]>) -> Option<Cow<'a, [u8]>> {
 - [own-cow-conditional](own-cow-conditional.md) - Use Cow for conditional ownership
 - [mem-clone-from](mem-clone-from.md) - Reuse allocations when cloning
 - [mem-take-replace](mem-take-replace.md) - Move out of &mut without cloning
+- [anti-clone-excessive](anti-clone-excessive.md) - recognize unnecessary cloning

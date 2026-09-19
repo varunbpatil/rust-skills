@@ -74,6 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `FromStr` pairs naturally with `Display`: if you can parse it in, you should be able to print it out.
 - For infallible string conversions (e.g., wrapping a `String` in a newtype), consider `From<&str>` or `From<String>` instead.
 - CLI crates like `clap` detect `FromStr` automatically via the `value_parser` attribute macro.
+- For enums with repetitive string mappings, [`strum`](https://crates.io/crates/strum)
+  can derive `FromStr`, `Display`, and related traits. Keep a manual
+  implementation when aliases, diagnostics, normalization, or compatibility
+  behavior are part of the public contract.
 
 ## See Also
 

@@ -70,6 +70,15 @@ struct Report {
 - The module approach (`with`) is more reusable: define it once, apply it anywhere. Some crates (e.g. `time`, `chrono`, `uuid`) ship ready-made `with` modules in their serde feature.
 - For widespread custom representations, a newtype wrapper with its own `Serialize`/`Deserialize` impl is often cleaner than repeating `#[serde(with = "...")]` everywhere.
 
+## Reuse Established Adapters
+
+Before writing a generic adapter, check
+[`serde_with`](https://crates.io/crates/serde_with). Its `serde_as` system and
+adapter library cover common representations such as durations, display-based
+parsing, duplicate-key policies, collection conversions, and version-tolerant
+defaults. Keep a local `with` module for domain-specific wire formats or when a
+small implementation avoids an otherwise unnecessary dependency.
+
 ## Caveats
 
 The `with` module functions must match the exact signatures serde expects. The `serialize` function receives `&T` (a reference), not `T`.

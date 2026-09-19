@@ -78,7 +78,7 @@ process(&arc);    // Works
 
 ## Path Types Too
 
-```rust
+```rust,ignore
 // Bad
 fn read_config(path: &PathBuf) -> Config { /* ... */ }
 
@@ -105,7 +105,7 @@ impl Logger {
     fn new(prefix: String) -> Self {
         Self { prefix }
     }
-    
+
     // Or use Into for flexibility
     fn with_prefix(prefix: impl Into<String>) -> Self {
         Self { prefix: prefix.into() }
@@ -117,3 +117,4 @@ impl Logger {
 
 - [api-impl-asref](api-impl-asref.md) - Accept `impl AsRef<T>` for maximum flexibility
 - [own-borrow-over-clone](own-borrow-over-clone.md) - Prefer borrowing over cloning
+- [anti-string-for-str](anti-string-for-str.md) - avoid owned strings in borrowed APIs

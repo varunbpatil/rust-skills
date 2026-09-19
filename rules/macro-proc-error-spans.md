@@ -112,6 +112,24 @@ error: MyTrait requires named fields
 - Combine multiple errors with `Error::combine` rather than returning early, so the user sees all problems at once.
 - Error messages: lowercase, no trailing punctuation (consistent with Rust compiler style).
 
+## Test Diagnostics as Compiler Output
+
+Use [`trybuild`](https://crates.io/crates/trybuild) to compile passing and
+failing fixtures. Commit the expected `.stderr` files so changes to spans and
+messages are reviewed alongside macro changes.
+
+```rust
+#[test]
+fn ui() {
+    let tests = trybuild::TestCases::new();
+    tests.pass("tests/ui/pass/*.rs");
+    tests.compile_fail("tests/ui/fail/*.rs");
+}
+```
+
+Keep assertions focused on diagnostics your macro owns; compiler wording outside
+those diagnostics can change with the toolchain.
+
 ## See Also
 
 - [macro-proc-syn-quote](macro-proc-syn-quote.md) - parsing with syn, quoting with quote

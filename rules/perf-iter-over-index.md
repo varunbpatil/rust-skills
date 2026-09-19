@@ -1,25 +1,21 @@
 # perf-iter-over-index
 
-> Prefer iterators over manual indexing
+> Prefer iterators when they express traversal more clearly; use indices when the index is part of the problem
 
 ## Why It Matters
 
-Iterators are the idiomatic way to traverse collections in Rust. They enable bounds check elimination, SIMD auto-vectorization, and cleaner code. Manual indexing (`for i in 0..len`) often prevents these optimizations and introduces off-by-one error risks.
+Manual indexing makes off-by-one and mismatched-length bugs easy to write.
+Iterator adapters express traversal and relationships directly. They can also
+make bounds-check elimination and vectorization easier for LLVM, but Rust does
+not guarantee either optimization: well-structured indexed loops can compile
+just as efficiently. Preserve semantics first, then inspect generated code or
+benchmark when the loop is actually hot.
 
 ## Bad
 
 ```rust
-// Manual indexing - bounds checked every iteration
-fn sum_squares(data: &[i32]) -> i64 {
-    let mut sum = 0i64;
-    for i in 0..data.len() {
-        sum += (data[i] as i64) * (data[i] as i64);
-    }
-    sum
-}
-
-// Index-based iteration with multiple collections
 fn dot_product(a: &[f64], b: &[f64]) -> f64 {
+    // Silently truncates to the shorter input and couples traversal to an index.
     let mut sum = 0.0;
     for i in 0..a.len().min(b.len()) {
         sum += a[i] * b[i];
@@ -27,7 +23,6 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
     sum
 }
 
-// Mutating with indices
 fn double_values(data: &mut [i32]) {
     for i in 0..data.len() {
         data[i] *= 2;
@@ -38,77 +33,53 @@ fn double_values(data: &mut [i32]) {
 ## Good
 
 ```rust
-// Iterator - bounds checks eliminated, SIMD-friendly
-fn sum_squares(data: &[i32]) -> i64 {
-    data.iter()
-        .map(|&x| (x as i64) * (x as i64))
-        .sum()
-}
-
-// Zip iterators - no manual length handling
 fn dot_product(a: &[f64], b: &[f64]) -> f64 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(&x, &y)| x * y)
-        .sum()
+    assert_eq!(a.len(), b.len(), "vectors must have equal dimensions");
+    a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
-// Mutable iteration
 fn double_values(data: &mut [i32]) {
-    for x in data.iter_mut() {
-        *x *= 2;
+    for value in data {
+        *value *= 2;
     }
 }
 ```
 
-## When Indexing Is Needed
+The assertion preserves an equal-dimension contract; using `zip` alone would
+silently change behavior by truncating unequal inputs.
 
-Sometimes you genuinely need indices:
+## When Indices Are Appropriate
+
+Use indices when they carry meaning, when traversal is deliberately
+non-sequential, or when an algorithm relates several positions:
 
 ```rust
-// Need the index for output or processing
-for (i, value) in data.iter().enumerate() {
-    println!("Index {}: {}", i, value);
+fn adjacent_differences(values: &[i64]) -> Vec<i64> {
+    values.windows(2).map(|pair| pair[1] - pair[0]).collect()
 }
 
-// Non-sequential access patterns
-fn interleave(data: &mut [i32]) {
-    let mid = data.len() / 2;
-    for i in 0..mid {
-        data.swap(i * 2, mid + i);
+fn report_positions(values: &[i64]) {
+    for (index, value) in values.iter().enumerate() {
+        println!("{index}: {value}");
     }
 }
 ```
 
-## Performance Comparison
+For a genuinely index-driven algorithm, safe indexing is the default. Do not
+introduce `get_unchecked` without profiling evidence and a documented proof of
+the bounds invariant.
 
-| Pattern | Bounds Checks | SIMD Potential | Clarity |
-|---------|---------------|----------------|---------|
-| `for i in 0..len` | Every access | Limited | Medium |
-| `for &x in slice` | None | High | High |
-| `.iter().enumerate()` | None | Medium | High |
-| `get_unchecked` | None (unsafe) | High | Low |
+## Optimization Notes
 
-## Iterator Advantages
-
-```rust
-// Chaining operations - single pass
-let result: Vec<_> = data.iter()
-    .filter(|x| **x > 0)
-    .map(|x| x * 2)
-    .collect();
-
-// Early termination optimized
-let found = data.iter().any(|&x| x == target);
-
-// Parallel iteration (with rayon)
-use rayon::prelude::*;
-let sum: i64 = data.par_iter().map(|&x| x as i64).sum();
-```
+- LLVM may eliminate bounds checks and vectorize either indexed or iterator
+  forms.
+- Iterator syntax is not a performance guarantee, and indexing is not proof of
+  a bounds check in the final machine code.
+- Prefer the version that states the algorithm's invariants most clearly.
+- Use benchmarks or assembly inspection for performance-sensitive code.
 
 ## See Also
 
-- [perf-iter-lazy](./perf-iter-lazy.md) - Keep iterators lazy
-- [opt-bounds-check](./opt-bounds-check.md) - Bounds check elimination
-- [anti-index-over-iter](./anti-index-over-iter.md) - Anti-pattern
-- [conc-rayon-par-iter](./conc-rayon-par-iter.md) - Parallelize data-parallel loops
+- [perf-iter-lazy](./perf-iter-lazy.md) - keep iterator pipelines lazy
+- [opt-bounds-check](./opt-bounds-check.md) - structure hot loops for optimization
+- [conc-rayon-par-iter](./conc-rayon-par-iter.md) - parallelize suitable CPU work

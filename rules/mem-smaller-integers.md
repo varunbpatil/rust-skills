@@ -27,7 +27,7 @@ struct GeoPoint {
     lat: f64,   // -90 to 90
     lon: f64,   // -180 to 180
 }
-// Often f32 precision is sufficient for display
+// Choose precision from an explicit positional-error requirement.
 ```
 
 ## Good
@@ -48,31 +48,33 @@ struct HttpStatus {
 // Size: 3 bytes (+ 1 padding = 4 bytes)
 
 struct GeoPoint {
-    lat: f32,   // ~7 decimal digits precision
-    lon: f32,   // Sufficient for most geo applications
+    lat: f32,   // ~7 decimal digits; use only when that error is acceptable
+    lon: f32,
 }
-// Size: 8 bytes vs 16 bytes
+// Two f32 values occupy less storage than two f64 values, but lose precision.
 ```
 
 ## Integer Size Reference
 
-| Type | Range | Use For |
-|------|-------|---------|
-| `u8` | 0 to 255 | Bytes, small counts, flags |
-| `i8` | -128 to 127 | Small signed values |
-| `u16` | 0 to 65,535 | Port numbers, small indices |
-| `i16` | -32,768 to 32,767 | Audio samples |
-| `u32` | 0 to 4 billion | Array indices, timestamps (seconds) |
-| `i32` | ±2 billion | General integers, file offsets |
-| `u64` | 0 to 18 quintillion | Large counts, nanosecond timestamps |
-| `usize` | Platform-dependent | Array indexing (required by Rust) |
+| Type    | Range               | Use For                               |
+| ------- | ------------------- | ------------------------------------- |
+| `u8`    | 0 to 255            | Bytes, small counts, flags            |
+| `i8`    | -128 to 127         | Small signed values                   |
+| `u16`   | 0 to 65,535         | Port numbers, small indices           |
+| `i16`   | -32,768 to 32,767   | Audio samples                         |
+| `u32`   | 0 to 4 billion      | Bounded counts, IDs, protocol fields  |
+| `i32`   | ±2 billion          | Domain values with a documented bound |
+| `u64`   | 0 to 18 quintillion | Large counts, nanosecond timestamps   |
+| `usize` | Platform-dependent  | Array indexing (required by Rust)     |
 
 ## Struct Packing
 
 ```rust
 use std::mem::size_of;
 
-// Poor ordering - 24 bytes due to padding
+// Use repr(C) here because its declaration-order layout makes this comparison
+// predictable. Rust's default representation may reorder fields.
+#[repr(C)]
 struct Wasteful {
     a: u8,    // 1 byte + 7 padding
     b: u64,   // 8 bytes
@@ -80,7 +82,8 @@ struct Wasteful {
 }
 assert_eq!(size_of::<Wasteful>(), 24);
 
-// Better ordering - 16 bytes
+// Better ordering under repr(C) - 16 bytes
+#[repr(C)]
 struct Efficient {
     b: u64,   // 8 bytes (aligned)
     a: u8,    // 1 byte
@@ -88,7 +91,8 @@ struct Efficient {
 }
 assert_eq!(size_of::<Efficient>(), 16);
 
-// Even better with smaller types - 10 bytes
+// Even better with smaller types
+#[repr(C)]
 struct Compact {
     b: u32,   // 4 bytes (if u32 suffices)
     a: u8,    // 1 byte
@@ -96,6 +100,11 @@ struct Compact {
 }
 assert_eq!(size_of::<Compact>(), 8);  // With padding
 ```
+
+Do not add `repr(C)` merely to save memory: it is used above to make the
+example's layout deterministic and also creates an ABI commitment. For normal
+`repr(Rust)` types, check `size_of` on supported targets rather than relying on
+field declaration order.
 
 ## Conversion Safety
 
@@ -142,12 +151,15 @@ if perms.contains(Permissions::READ) {
 
 ```rust
 use std::num::NonZeroU64;
+use std::mem::size_of;
 
-// Option<u64> = 16 bytes (no null pointer optimization)
-assert_eq!(size_of::<Option<u64>>(), 16);
+// A plain integer has no invalid value available as a niche, so its Option
+// generally needs separate discriminant storage; exact layout is target-specific.
+println!("Option<u64>: {}", size_of::<Option<u64>>());
 
-// Option<NonZeroU64> = 8 bytes (0 represents None)
-assert_eq!(size_of::<Option<NonZeroU64>>(), 8);
+// The standard library guarantees the null-pointer optimization here: zero can
+// represent None because it is invalid for NonZeroU64.
+assert_eq!(size_of::<Option<NonZeroU64>>(), size_of::<u64>());
 
 let id: Option<NonZeroU64> = NonZeroU64::new(42);
 ```
@@ -157,5 +169,5 @@ let id: Option<NonZeroU64> = NonZeroU64::new(42);
 - [mem-box-large-variant](./mem-box-large-variant.md) - Optimizing enum sizes
 - [mem-assert-type-size](./mem-assert-type-size.md) - Compile-time size checks
 - [type-newtype-ids](./type-newtype-ids.md) - Type safety for integer IDs
-- [num-nonzero](num-nonzero.md) - NonZero* niche optimization
+- [num-nonzero](num-nonzero.md) - NonZero\* niche optimization
 - [num-cast-try-from](num-cast-try-from.md) - Avoid lossy `as` casts

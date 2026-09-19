@@ -29,7 +29,7 @@ This forces exclusive access even for logically shared operations.
 
 ## Good
 
-```rust
+```rust,ignore
 use std::cell::RefCell;
 use std::collections::HashMap;
 

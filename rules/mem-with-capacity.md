@@ -9,10 +9,10 @@ When you know (or can estimate) the final size of a collection, pre-allocating a
 ## Bad
 
 ```rust
-// Vec starts at capacity 0, reallocates at 4, 8, 16, 32...
+// Vec grows geometrically; exact capacities are an implementation detail.
 let mut results = Vec::new();
 for i in 0..1000 {
-    results.push(process(i));  // ~10 reallocations!
+    results.push(process(i));
 }
 
 // String grows similarly
@@ -35,7 +35,7 @@ for (k, v) in pairs {  // Many reallocations
 // Pre-allocate exact size
 let mut results = Vec::with_capacity(1000);
 for i in 0..1000 {
-    results.push(process(i));  // Zero reallocations!
+    results.push(process(i));  // No growth reallocation for these 1000 pushes
 }
 
 // Or use collect with size hint (iterator provides capacity)
@@ -62,8 +62,8 @@ for (k, v) in pairs {
 // Vec
 let mut v = Vec::with_capacity(100);
 v.reserve(50);        // Ensure at least 50 more slots
-v.reserve_exact(50);  // Ensure exactly 50 more (no extra)
-v.shrink_to_fit();    // Release unused capacity
+v.reserve_exact(50);  // Request minimum growth; allocator may provide more
+v.shrink_to_fit();    // Request shrinking; capacity may remain above length
 
 // String
 let mut s = String::with_capacity(100);
@@ -104,7 +104,7 @@ fn filter_valid(items: &[Item]) -> Vec<&Item> {
 fn join_with_sep(parts: &[&str], sep: &str) -> String {
     let total_len: usize = parts.iter().map(|p| p.len()).sum();
     let sep_len = if parts.is_empty() { 0 } else { sep.len() * (parts.len() - 1) };
-    
+
     let mut result = String::with_capacity(total_len + sep_len);
     for (i, part) in parts.iter().enumerate() {
         if i > 0 {
@@ -118,19 +118,20 @@ fn join_with_sep(parts: &[&str], sep: &str) -> String {
 
 ## Evidence from Production Code
 
-From fd (file finder):
+Adapted from the buffering pattern used by fd (file finder):
+
 ```rust
 // https://github.com/sharkdp/fd/blob/master/src/walk.rs
-struct ReceiverBuffer<'a, W> {
-    buffer: Vec<DirEntry>,
-    // ...
+const MAX_BUFFER_LENGTH: usize = 1_000;
+
+struct ReceiverBuffer<T> {
+    buffer: Vec<T>,
 }
 
-impl<'a, W: Write> ReceiverBuffer<'a, W> {
-    fn new(...) -> Self {
+impl<T> ReceiverBuffer<T> {
+    fn new() -> Self {
         Self {
             buffer: Vec::with_capacity(MAX_BUFFER_LENGTH),
-            // ...
         }
     }
 }

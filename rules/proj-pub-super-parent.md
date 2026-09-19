@@ -1,10 +1,17 @@
 # proj-pub-super-parent
 
-> Use pub(super) for parent-only visibility
+> Use `pub(super)` to expose a child module's item within its parent module tree
 
 ## Why It Matters
 
-`pub(super)` exposes items only to the immediate parent module. This is useful for helper functions and types that submodules share but shouldn't be visible to the rest of the crate.
+`pub(super)` makes an item visible to its parent module and that parent's
+descendants. This is useful when a child module owns a helper or type that the
+rest of its parent module tree needs, but other crate modules do not.
+
+Its scope depends on where it is declared. Inside `parser::shared`,
+`pub(super)` reaches `parser` and `parser`'s descendants. Inside
+`parser` itself, it reaches the crate root, which is usually broader than
+intended.
 
 ## Bad
 
@@ -26,33 +33,47 @@ pub(crate) struct Token {  // Visible to entire crate
 ## Good
 
 ```rust
-// src/parser/mod.rs
-pub mod lexer;
-pub mod ast;
+mod parser {
+    mod shared {
+        #[derive(Clone, Copy)]
+        pub(super) struct Token {
+            pub(super) kind: TokenKind,
+        }
 
-// Shared types for parser submodules only
-pub(super) struct Token {
-    pub(super) kind: TokenKind,
-    pub(super) span: Span,
+        #[derive(Clone, Copy)]
+        pub(super) enum TokenKind {
+            Word,
+        }
+
+        pub(super) fn word() -> Token {
+            Token { kind: TokenKind::Word }
+        }
+    }
+
+    mod lexer {
+        use super::shared::{word, Token};
+
+        pub(super) fn lex() -> Token {
+            word()
+        }
+    }
+
+    mod ast {
+        use super::shared::Token;
+
+        pub(super) fn is_word(token: Token) -> bool {
+            matches!(token.kind, super::shared::TokenKind::Word)
+        }
+    }
+
+    pub(super) fn check() {
+        let token = lexer::lex();
+        assert!(ast::is_word(token));
+    }
 }
 
-pub(super) fn shared_helper() -> Token {
-    // Only visible in parser/*
-}
-
-// src/parser/lexer.rs
-use super::{Token, shared_helper};
-
-pub fn lex(input: &str) -> Vec<Token> {
-    shared_helper();
-    // ...
-}
-
-// src/parser/ast.rs
-use super::Token;
-
-pub fn parse(tokens: Vec<Token>) -> Ast {
-    // ...
+fn main() {
+    parser::check();
 }
 ```
 
@@ -62,69 +83,79 @@ pub fn parse(tokens: Vec<Token>) -> Ast {
 src/
 ├── lib.rs           # crate root
 ├── parser/
-│   ├── mod.rs       # pub(super) items visible here
-│   ├── lexer.rs     # can use pub(super) from mod.rs
-│   └── ast.rs       # can use pub(super) from mod.rs
-└── codegen.rs       # CANNOT see pub(super) parser items
+│   ├── mod.rs
+│   ├── shared.rs    # `pub(super)` reaches parser/* from here
+│   ├── lexer.rs     # can use parser::shared items
+│   └── ast.rs       # can use parser::shared items
+└── codegen.rs       # cannot use parser::shared items
 ```
 
 ## Pattern: Layered Visibility
 
 ```rust
-// src/database/mod.rs
-mod connection;
-mod query;
-mod pool;
+mod database {
+    // src/database/connection.rs
+    mod connection {
+        pub(super) struct RawConnection;
+    }
 
-// Only this module's children can see
-pub(super) struct RawConnection { /* ... */ }
+    // src/database/mod.rs
+    // Visible anywhere within this crate.
+    pub(crate) struct Pool(connection::RawConnection);
 
-// Entire crate can see
-pub(crate) struct Pool { /* ... */ }
-
-// Everyone can see
-pub struct Database { /* ... */ }
+    // Public library API.
+    pub struct Database;
+}
 ```
 
 ## Pattern: Test Helpers
 
 ```rust
-// src/parser/mod.rs
-mod lexer;
-mod ast;
+mod parser {
+    mod shared {
+        pub(super) struct Token;
+    }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    // Test helper visible only to parser module's tests
-    pub(super) fn make_test_token() -> Token {
-        Token { kind: TokenKind::Test, span: Span::dummy() }
+    #[cfg(test)]
+    mod tests {
+        use super::shared::Token;
+
+        // Visible to `parser` and its descendant test modules.
+        pub(super) fn make_test_token() -> Token {
+            Token
+        }
+    }
+
+    mod lexer {
+        #[cfg(test)]
+        mod tests {
+            use super::super::tests::make_test_token;
+
+            #[test]
+            fn uses_the_feature_test_helper() {
+                let _ = make_test_token();
+            }
+        }
     }
 }
 
-// src/parser/lexer.rs
-#[cfg(test)]
-mod tests {
-    use super::super::tests::make_test_token;
-    // ...
-}
+fn main() {}
 ```
 
 ## Comparison
 
-| Visibility | Scope | Use Case |
-|------------|-------|----------|
-| `pub` | Everywhere | Public API |
-| `pub(crate)` | Crate-wide | Internal shared utilities |
-| `pub(super)` | Parent module | Submodule helpers |
-| `pub(in path)` | Specific path | Precise control |
-| (private) | Current module | Implementation details |
+| Visibility     | Scope                             | Use Case                                      |
+| -------------- | --------------------------------- | --------------------------------------------- |
+| `pub`          | Everywhere                        | Public API                                    |
+| `pub(crate)`   | Crate-wide                        | Internal shared utilities                     |
+| `pub(super)`   | Parent module and its descendants | Child-owned helpers shared in one module tree |
+| `pub(in path)` | Specific path                     | Precise control                               |
+| (private)      | Current module                    | Implementation details                        |
 
 ## When to Use pub(super)
 
-- Helper functions shared between sibling modules
-- Types used by submodules but not the rest of crate
+- A child-owned helper shared by sibling modules
+- A type used across one module tree but not elsewhere in the crate
 - Implementation details of a module group
 - Test utilities for a module tree
 
@@ -132,4 +163,4 @@ mod tests {
 
 - [proj-pub-crate-internal](./proj-pub-crate-internal.md) - Crate visibility
 - [proj-pub-use-reexport](./proj-pub-use-reexport.md) - Re-export patterns
-- [proj-mod-by-feature](./proj-mod-by-feature.md) - Feature organization
+- [proj-feature-boundaries](./proj-feature-boundaries.md) - Scope feature-local contracts

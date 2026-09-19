@@ -42,7 +42,7 @@ struct Api { ... }             // Not API
 
 ## Standard Library Examples
 
-```rust
+```rust,ignore
 // std uses acronyms as words
 std::net::TcpStream            // Not TCPStream
 std::net::TcpListener          // Not TCPListener

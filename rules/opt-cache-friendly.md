@@ -109,7 +109,7 @@ fn process_with_prefetch(data: &mut [u8]) {
 // Matrix multiplication - block for cache
 fn matmul_blocked(a: &[f64], b: &[f64], c: &mut [f64], n: usize) {
     const BLOCK: usize = 32;  // Fits in L1 cache
-    
+
     for i0 in (0..n).step_by(BLOCK) {
         for j0 in (0..n).step_by(BLOCK) {
             for k0 in (0..n).step_by(BLOCK) {
@@ -127,7 +127,7 @@ fn matmul_blocked(a: &[f64], b: &[f64], c: &mut [f64], n: usize) {
 
 ## Avoid Pointer Chasing
 
-```rust
+```rust,ignore
 // Bad: linked list - random memory access
 struct Node {
     value: i32,

@@ -1,18 +1,34 @@
 # opt-pgo-profile
 
-> Use Profile-Guided Optimization (PGO) for maximum performance
+> Evaluate PGO for mature binaries with representative workloads
 
 ## Why It Matters
 
-PGO uses real runtime behavior to guide compiler optimization decisions. By profiling actual workloads, the compiler learns which code paths are hot, optimizing them aggressively while deprioritizing cold paths. This can yield 10-30% performance improvements beyond standard optimizations.
+PGO uses recorded runtime behavior to guide optimization decisions. It can help
+mature, performance-sensitive binaries when the training workload represents
+production, but gains are not guaranteed and a biased or stale profile can hurt
+other workloads. Measure the optimized artifact against both representative and
+adversarial cases.
 
-## The PGO Process
+## Bad
+
+Training on a single tiny or synthetic request and assuming the profile
+represents production can optimize the wrong branches and layout.
+
+```bash
+# One trivial request is not a representative training corpus.
+./target/release/my_app < tiny_happy_path.txt
+```
+
+## Good
+
+### The PGO Process
 
 1. **Instrument**: Build with profiling instrumentation
 2. **Profile**: Run representative workloads
 3. **Optimize**: Rebuild using collected profile data
 
-## Step-by-Step
+### Step-by-Step
 
 ```bash
 # Step 1: Build instrumented binary
@@ -116,7 +132,7 @@ llvm-bolt target/release/my_app \
     -reorder-blocks=ext-tsp \
     -reorder-functions=hfsort
 
-# BOLT can add another 5-15% on top of PGO
+# Measure BOLT separately; its effect is binary- and workload-dependent.
 ```
 
 ## CI/CD Integration
@@ -128,22 +144,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install LLVM tools
         run: sudo apt-get install llvm
-      
+
       - name: Instrumented build
         run: RUSTFLAGS="-Cprofile-generate=/tmp/pgo" cargo build --release
-      
+
       - name: Run profiling workloads
         run: ./scripts/run_profiling_workloads.sh
-      
+
       - name: Merge profiles
         run: llvm-profdata merge -o /tmp/pgo/merged.profdata /tmp/pgo
-      
+
       - name: Optimized build
         run: RUSTFLAGS="-Cprofile-use=/tmp/pgo/merged.profdata" cargo build --release
-      
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -153,12 +169,12 @@ jobs:
 
 ## When to Use PGO
 
-| Use PGO | Skip PGO |
-|---------|----------|
-| Production deployments | Development builds |
+| Use PGO                   | Skip PGO                  |
+| ------------------------- | ------------------------- |
+| Production deployments    | Development builds        |
 | Performance-critical apps | Libraries (users can PGO) |
-| Stable workload patterns | Highly variable workloads |
-| Sufficient profiling data | Quick iteration cycles |
+| Stable workload patterns  | Highly variable workloads |
+| Sufficient profiling data | Quick iteration cycles    |
 
 ## See Also
 

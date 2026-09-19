@@ -4,7 +4,12 @@
 
 ## Why It Matters
 
-Panics unwind the stack and crash the thread (or program). They're unrecoverable from the caller's perspective. `Result<T, E>` gives callers the ability to decide how to handle errors—retry, fallback, propagate, or log. Libraries should almost never panic; applications should minimize panics to truly unrecoverable situations.
+A panic either unwinds the current thread or aborts the process, according to
+the panic strategy and boundary involved. Although unwind panics can sometimes
+be caught with `catch_unwind`, they are not ordinary typed error handling.
+`Result<T, E>` lets callers retry, fall back, propagate, or report expected
+failures. Public APIs should reserve panics for documented precondition
+violations and bugs rather than malformed input or environmental failures.
 
 ## Bad
 
@@ -12,7 +17,7 @@ Panics unwind the stack and crash the thread (or program). They're unrecoverable
 fn parse_config(path: &str) -> Config {
     let content = std::fs::read_to_string(path)
         .expect("Failed to read config");  // Crashes on missing file
-    
+
     serde_json::from_str(&content)
         .expect("Invalid config format")   // Crashes on bad JSON
 }
@@ -34,9 +39,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum ConfigError {
-    #[error("Failed to read config file: {0}")]
+    #[error("failed to read config file: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Invalid config format: {0}")]
+    #[error("invalid config format: {0}")]
     Parse(#[from] serde_json::Error),
 }
 
@@ -65,7 +70,7 @@ match parse_config("app.json") {
 
 ## When Panic IS Appropriate
 
-```rust
+```rust,ignore
 // 1. Bug in the program (invariant violation)
 fn get_cached_value(&self, key: &str) -> &Value {
     self.cache.get(key).expect("BUG: key was verified to exist")
@@ -93,17 +98,17 @@ fn main() {
 
 ## Panic vs Result Decision Guide
 
-| Situation | Use |
-|-----------|-----|
-| File not found | `Result` |
-| Network error | `Result` |
-| Invalid user input | `Result` |
-| Parse error | `Result` |
-| Index out of bounds (from user data) | `Result` |
-| Index out of bounds (internal bug) | Panic |
-| Violated internal invariant | Panic |
-| Unimplemented code path | Panic (`unimplemented!()`) |
-| Impossible state reached | Panic (`unreachable!()`) |
+| Situation                            | Use                        |
+| ------------------------------------ | -------------------------- |
+| File not found                       | `Result`                   |
+| Network error                        | `Result`                   |
+| Invalid user input                   | `Result`                   |
+| Parse error                          | `Result`                   |
+| Index out of bounds (from user data) | `Result`                   |
+| Index out of bounds (internal bug)   | Panic                      |
+| Violated internal invariant          | Panic                      |
+| Unimplemented code path              | Panic (`unimplemented!()`) |
+| Impossible state reached             | Panic (`unreachable!()`)   |
 
 ## Library vs Application
 

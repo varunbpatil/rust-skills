@@ -20,7 +20,7 @@ fn fetchOrder() -> Order { ... }  // Mixed conventions
 
 ## Good
 
-```rust
+```rust,ignore
 // snake_case for functions
 fn calculate_total() -> f64 { ... }
 fn get_user_name() -> String { ... }
@@ -64,7 +64,7 @@ fn process_data(input_data: &[u8]) -> Result<Output, Error> {
     let decoded_string = decode(raw_bytes)?;
     let parsed_value = parse(&decoded_string)?;
     let final_result = transform(parsed_value)?;
-    
+
     Ok(final_result)
 }
 ```

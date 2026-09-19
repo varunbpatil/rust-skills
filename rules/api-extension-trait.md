@@ -38,7 +38,7 @@ impl ByteSliceExt for [u8] {
             .map(|b| format!("{:02x}", b))
             .collect()
     }
-    
+
     fn is_ascii_printable(&self) -> bool {
         self.iter().all(|b| b.is_ascii_graphic() || b.is_ascii_whitespace())
     }
@@ -85,7 +85,7 @@ impl<T, E: std::fmt::Display> ResultExt<T, E> for Result<T, E> {
 
 ## Ecosystem Examples
 
-```rust
+```rust,ignore
 // itertools::Itertools
 use itertools::Itertools;
 let groups = vec![1, 1, 2, 2, 3].into_iter().group_by(|x| *x);
@@ -107,13 +107,13 @@ let content = std::fs::read_to_string(path)
 
 ## Scoped Extensions
 
-```rust
+```rust,ignore
 // Extension only visible where imported
 mod string_utils {
     pub trait StringExt {
         fn truncate_ellipsis(&self, max_len: usize) -> String;
     }
-    
+
     impl StringExt for str {
         fn truncate_ellipsis(&self, max_len: usize) -> String {
             if self.len() <= max_len {

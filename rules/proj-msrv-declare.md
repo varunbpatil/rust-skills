@@ -12,7 +12,7 @@ Setting `package.rust-version` causes Cargo to emit a clear, actionable error wh
 [package]
 name = "my-crate"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 # no rust-version — users get cryptic errors on old toolchains,
 # and nothing prevents a dep bump from silently raising the floor
 ```
@@ -24,7 +24,7 @@ edition = "2021"
 name = "my-crate"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.80"  # oldest toolchain you commit to supporting
+rust-version = "1.85"  # edition 2024 requires Rust 1.85 or newer
 
 [workspace]
 resolver = "3"  # default for edition 2024; enables MSRV-aware dep resolution
@@ -37,7 +37,7 @@ CI job pinning the MSRV toolchain (GitHub Actions example):
 - name: Install MSRV toolchain
   uses: dtolnay/rust-toolchain@master
   with:
-    toolchain: "1.80"
+    toolchain: "1.85"
 
 - name: Check MSRV
   run: cargo check --all-features

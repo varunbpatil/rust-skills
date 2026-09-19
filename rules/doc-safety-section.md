@@ -59,13 +59,13 @@ pub unsafe fn string_from_raw(ptr: *mut u8, len: usize, cap: usize) -> String {
 
 ## Key Elements of Safety Documentation
 
-| Element | Description |
-|---------|-------------|
-| **Preconditions** | What must be true before calling |
-| **Pointer validity** | Alignment, null-ness, lifetime |
+| Element              | Description                       |
+| -------------------- | --------------------------------- |
+| **Preconditions**    | What must be true before calling  |
+| **Pointer validity** | Alignment, null-ness, lifetime    |
 | **Memory ownership** | Who owns what, transfer semantics |
-| **Invariants** | Type invariants that must hold |
-| **Consequences** | What happens if violated |
+| **Invariants**       | Type invariants that must hold    |
+| **Consequences**     | What happens if violated          |
 
 ## Pattern: Unsafe Trait Implementations
 
@@ -127,5 +127,5 @@ pub fn get(&self, index: usize) -> Option<&T> {
 ## See Also
 
 - [doc-panics-section](./doc-panics-section.md) - Documenting panics
-- [lint-unsafe-doc](./lint-unsafe-doc.md) - Enforcing unsafe documentation
+- [unsafe-safety-comment](./unsafe-safety-comment.md) - Enforcing unsafe documentation
 - [doc-errors-section](./doc-errors-section.md) - Documenting errors

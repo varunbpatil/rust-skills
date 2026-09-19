@@ -4,7 +4,11 @@
 
 ## Why It Matters
 
-Standard `Vec<T>` is 24 bytes even when empty. `ThinVec` from Mozilla's `thin_vec` crate uses a single pointer (8 bytes), storing length and capacity inline with the heap allocation. For Option<Vec<T>> patterns or structs with many optional vecs, this significantly reduces memory overhead.
+On common 64-bit targets, `Vec<T>` is three words even when empty. `ThinVec`
+from the `thin-vec` crate is one word and stores length and capacity with its
+element allocation. For structs containing many usually-empty collections,
+this can reduce inline object size. Exact layouts are target- and crate-version-
+dependent, so assert the sizes that matter and benchmark access costs.
 
 ## Bad
 
@@ -17,7 +21,7 @@ struct TreeNode {
 
 // Or using Option<Vec<T>>
 struct SparseData {
-    // Option<Vec> = 24 bytes (Vec is never null-pointer optimized)
+    // On this target Option<Vec<T>> is the same three-word size as Vec<T>.
     tags: Option<Vec<String>>,
     metadata: Option<Vec<Metadata>>,
     // 48 bytes for usually-None fields
@@ -48,26 +52,26 @@ struct SparseData {
 ```rust
 use std::mem::size_of;
 
-// Standard Vec: always 24 bytes
+// These values describe the supported 64-bit target; guard such assumptions.
 assert_eq!(size_of::<Vec<u8>>(), 24);
-assert_eq!(size_of::<Option<Vec<u8>>>(), 24);  // No NPO benefit
+assert_eq!(size_of::<Option<Vec<u8>>>(), 24);
 
 // ThinVec: 8 bytes (one pointer)
 use thin_vec::ThinVec;
 assert_eq!(size_of::<ThinVec<u8>>(), 8);
-assert_eq!(size_of::<Option<ThinVec<u8>>>(), 8);  // Option is free!
+// Verify Option layout against the exact thin-vec version before relying on it.
 ```
 
 ## ThinVec vs Vec
 
-| Feature | `Vec<T>` | `ThinVec<T>` |
-|---------|----------|--------------|
-| Size (empty) | 24 bytes | 8 bytes |
-| Size (non-empty) | 24 bytes | 8 bytes (header on heap) |
-| Option<T> optimization | No | Yes |
-| Cache locality | Better (len/cap on stack) | Worse (len/cap on heap) |
-| Iteration speed | Faster | Slightly slower |
-| API compatibility | Full | Vec-like |
+| Feature           | `Vec<T>`                  | `ThinVec<T>`                      |
+| ----------------- | ------------------------- | --------------------------------- |
+| Size (empty)      | 24 bytes                  | 8 bytes                           |
+| Size (non-empty)  | 24 bytes                  | 8 bytes (header on heap)          |
+| `Option` layout   | Target/version-dependent  | Target/version-dependent          |
+| Cache locality    | Better (len/cap on stack) | Worse (len/cap on heap)           |
+| Iteration speed   | Measure                   | Extra header indirection; measure |
+| API compatibility | Full                      | Vec-like                          |
 
 ## When to Use ThinVec
 

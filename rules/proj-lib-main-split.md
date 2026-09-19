@@ -14,7 +14,7 @@ fn main() {
     let args = parse_args();
     let config = load_config(&args.config_path).unwrap();
     let db = connect_database(&config.db_url).unwrap();
-    
+
     // Hundreds of lines of application logic...
     // All untestable from integration tests!
 }
@@ -36,16 +36,17 @@ fn main() -> anyhow::Result<()> {
     run(config)
 }
 
-// src/lib.rs - all the logic
+// src/lib.rs - application code; the binary calls this thin entry point
 pub mod config;
-pub mod database;
-pub mod handlers;
+mod user;
 
 pub use config::Config;
 
 pub fn run(config: Config) -> anyhow::Result<()> {
-    let db = database::connect(&config.db_url)?;
-    let app = handlers::build_app(db);
+    // These are `pub(crate)` re-exports from `user`; the binary cannot name them.
+    let repository = user::SqliteUserRepository::connect(&config.database_url)?;
+    let service = user::UserService::new(repository);
+    let app = user::router(service);
     app.run()
 }
 ```
@@ -70,7 +71,7 @@ use clap::Parser;
 pub struct Args {
     #[arg(short, long)]
     pub config: PathBuf,
-    
+
     #[arg(short, long, default_value = "info")]
     pub log_level: String,
 }
@@ -86,29 +87,29 @@ pub fn run(args: Args) -> anyhow::Result<()> {
 my_app/
 ├── Cargo.toml
 ├── src/
-│   ├── main.rs       # Entry point only
-│   ├── lib.rs        # Library root, re-exports
+│   ├── main.rs       # Thin entry point; invokes application startup
+│   ├── lib.rs        # Library root and feature declarations
 │   ├── config.rs     # Configuration
-│   ├── database.rs   # Database connection
-│   └── handlers/     # Request handlers
+│   └── user/
 │       ├── mod.rs
-│       └── users.rs
+│       ├── models.rs
+│       ├── errors.rs
+│       ├── ports.rs
+│       ├── service.rs
+│       └── adapters/
+│           ├── http.rs
+│           └── sqlite.rs
 └── tests/
     └── integration.rs  # Can access lib.rs!
 ```
+
+`main.rs` remains the binary's process entry point. Keeping its work to parsing process input and invoking `run` makes it thin; `run` is the composition function and can assemble crate-private adapters without exposing them from the library API. The feature module re-exports the concrete adapter, service, and router as `pub(crate)`, and their constructors and functions must also be `pub(crate)`: a re-export cannot widen a private item. The router receives the concrete service through the inbound port it implements, so router tests can substitute a fake implementation of that inbound port without exposing the concrete service.
 
 ## Testing Benefits
 
 ```rust
 // tests/integration.rs - can test everything!
-use my_app::{Config, run, database};
-
-#[test]
-fn test_database_connection() {
-    let config = Config::test_config();
-    let db = database::connect(&config.db_url).unwrap();
-    assert!(db.is_connected());
-}
+use my_app::{Config, run};
 
 #[test]
 fn test_full_workflow() {
@@ -121,25 +122,34 @@ fn test_full_workflow() {
 ## Multiple Binaries
 
 ```rust
-// src/lib.rs - shared code
-pub mod core;
-pub mod utils;
+// src/lib.rs - public startup functions; concrete wiring stays private
+mod cli;
+mod server;
+
+pub fn run_server() -> anyhow::Result<()> {
+    server::run()
+}
+
+pub fn run_cli() -> anyhow::Result<()> {
+    cli::run()
+}
 
 // src/bin/server.rs
-use my_app::core::Server;
+use my_app::run_server;
 
 fn main() -> anyhow::Result<()> {
-    Server::new()?.run()
+    run_server()
 }
 
 // src/bin/cli.rs
-use my_app::core::Client;
+use my_app::run_cli;
 
 fn main() -> anyhow::Result<()> {
-    let client = Client::new()?;
-    client.execute_command()
+    run_cli()
 }
 ```
+
+Each binary owns only process-specific setup and invokes its public library startup function. That function can assemble crate-private adapters and services without making infrastructure types part of the library API.
 
 ## See Also
 

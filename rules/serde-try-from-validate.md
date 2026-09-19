@@ -107,6 +107,11 @@ fn main() {
 
 `#[serde(try_from)]` and `#[serde(into)]` are mutually exclusive with deriving `Serialize`/`Deserialize` via field-by-field derivation on the same struct — the attribute replaces the derived impl entirely.
 
+For deeply nested input, [`serde_path_to_error`](https://crates.io/crates/serde_path_to_error)
+can report the field or index at which deserialization failed. It improves the
+location attached to a validation or type error; the `TryFrom` implementation
+still owns the domain validation and message.
+
 ## See Also
 
 - [api-parse-dont-validate](api-parse-dont-validate.md) - parse into validated types at boundaries

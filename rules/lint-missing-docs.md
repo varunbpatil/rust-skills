@@ -6,6 +6,14 @@
 
 The `missing_docs` lint ensures all public API items are documented. For libraries, documentation IS the user interface. Missing docs mean users can't understand your API without reading source code.
 
+## Bad
+
+```rust,ignore
+pub struct RetryPolicy {
+    pub attempts: usize,
+}
+```
+
 ## Configuration
 
 ```rust
@@ -45,7 +53,7 @@ pub trait Handler {  // WARN: missing documentation for a trait
 
 ## Good
 
-```rust
+````rust
 #![warn(missing_docs)]
 
 //! User management module.
@@ -72,7 +80,7 @@ pub trait Handler {
     /// Handle an incoming request.
     fn handle(&self);
 }
-```
+````
 
 ## Private Items
 
@@ -95,7 +103,7 @@ pub struct Public { }  // WARN - public, needs docs
 pub mod api {
     /// Documented struct.
     pub struct Config { }
-    
+
     #[allow(missing_docs)]
     pub mod internal {
         // Internal API, docs not required
@@ -138,17 +146,17 @@ workspace = true
 
 ## What to Document
 
-| Item | Doc Focus |
-|------|-----------|
-| Structs | Purpose, usage example |
-| Struct fields | What it represents |
-| Enums | When to use each variant |
-| Functions | What it does, params, return |
-| Traits | Contract and expectations |
-| Modules | What the module provides |
+| Item          | Doc Focus                    |
+| ------------- | ---------------------------- |
+| Structs       | Purpose, usage example       |
+| Struct fields | What it represents           |
+| Enums         | When to use each variant     |
+| Functions     | What it does, params, return |
+| Traits        | Contract and expectations    |
+| Modules       | What the module provides     |
 
 ## See Also
 
 - [doc-all-public](./doc-all-public.md) - Documentation patterns
-- [lint-unsafe-doc](./lint-unsafe-doc.md) - Unsafe documentation
+- [unsafe-safety-comment](./unsafe-safety-comment.md) - Unsafe documentation
 - [doc-examples-section](./doc-examples-section.md) - Adding examples

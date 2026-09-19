@@ -4,7 +4,7 @@
 
 ## Why It Matters
 
-The `as` cast silently truncates or wraps on narrowing (`300u32 as u8 == 44`) and produces surprising results on float-to-integer conversion (values outside range saturate to the type's min/max since Rust 1.45, but `NaN` becomes `0`). These behaviors are easy to miss during code review and impossible to catch at runtime without tests. `From`/`Into` are lossless by design and will not compile for lossy conversions; `TryFrom`/`TryInto` return `Result` and make the fallibility explicit.
+The `as` cast silently truncates or wraps on narrowing (`300u32 as u8 == 44`) and produces surprising results on float-to-integer conversion (values outside range saturate to the type's min/max since Rust 1.45, but `NaN` becomes `0`). These behaviors are easy to miss during code review. Standard-library `From`/`Into` implementations are infallible and lossless in the relevant sense; `TryFrom`/`TryInto` return `Result` and make fallibility explicit. Custom trait implementations must uphold those conventions themselves.
 
 ## Bad
 
@@ -27,7 +27,7 @@ fn widen(x: u8) -> u32 {
 ```rust
 use std::convert::TryFrom;
 
-// widening: From<u8> for u32 is always lossless — won't compile if lossy
+// widening: the standard library provides this lossless conversion
 fn widen(x: u8) -> u32 {
     u32::from(x)
     // or: x.into()
@@ -41,10 +41,13 @@ fn narrow(x: u32) -> Result<u8, <u8 as TryFrom<u32>>::Error> {
 
 // float → integer: validate the range manually before casting
 fn float_to_index(f: f64, len: usize) -> Option<usize> {
-    if f.is_nan() || f < 0.0 || f >= len as f64 {
+    // On 64-bit targets usize::MAX rounds upward when converted to f64, so use
+    // a strict bound before casting and check the resulting index separately.
+    if !f.is_finite() || f < 0.0 || f >= usize::MAX as f64 {
         return None;
     }
-    Some(f as usize)  // `as` is acceptable here: range is verified above
+    let index = f as usize; // fractional values deliberately truncate
+    (index < len).then_some(index)
 }
 
 #[cfg(test)]
@@ -81,7 +84,10 @@ mod tests {
 
 ## Key Points
 
-- `From<A> for B` compiles only when the conversion is always lossless. Attempting `u8::from(300u32)` is a compile error.
+- Standard-library `From` implementations follow the convention that the
+  conversion is infallible and lossless in the relevant sense. The trait system
+  cannot enforce that convention for custom implementations. `u8::from(u32)`
+  is therefore not implemented; use `u8::try_from(value)` for narrowing.
 - `TryFrom` returns `Result<T, TryFromIntError>` from the standard library — no external crates needed.
 - Reserve `as` for:
   - Pointer casts (e.g., `*const u8 as *mut u8`) that are intentional.

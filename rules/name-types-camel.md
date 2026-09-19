@@ -20,7 +20,7 @@ struct HTTP_CLIENT { ... }  // Not idiomatic
 
 ## Good
 
-```rust
+```rust,ignore
 // UpperCamelCase for all types
 struct HttpClient { ... }
 trait Serializable { ... }

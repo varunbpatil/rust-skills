@@ -1,10 +1,14 @@
 # async-broadcast-pubsub
 
-> Use `broadcast` channel for pub/sub where all subscribers receive all messages
+> Use `broadcast` for lossy pub/sub where each active receiver can observe each message
 
 ## Why It Matters
 
-Unlike `mpsc` where one consumer receives each message, `broadcast` delivers each message to all subscribers. This is ideal for event broadcasting, real-time notifications, or when multiple components need to react to the same events independently.
+Unlike `mpsc`, where one consumer receives each message, `broadcast` makes each
+message available to every receiver subscribed at send time. The buffer is
+bounded: a lagging receiver loses old messages and receives `RecvError::Lagged`.
+Use it only when that loss can be detected and recovered from; it is not a
+durable all-subscribers-delivery mechanism.
 
 ## Bad
 
@@ -23,10 +27,10 @@ let mut rx2 = ???;  // Can't clone receiver
 ```rust
 use tokio::sync::broadcast;
 
-// broadcast delivers to ALL subscribers
+// broadcast makes messages available to all current subscribers
 let (tx, _) = broadcast::channel::<Event>(100);
 
-// Each subscriber gets ALL messages
+// Each non-lagging subscriber observes each message
 let mut rx1 = tx.subscribe();
 let mut rx2 = tx.subscribe();
 
@@ -109,12 +113,12 @@ impl EventBus {
         let (tx, _) = broadcast::channel(1000);
         EventBus { tx }
     }
-    
+
     fn publish(&self, event: AppEvent) {
         // Ignore error if no subscribers
         let _ = self.tx.send(event);
     }
-    
+
     fn subscribe(&self) -> broadcast::Receiver<AppEvent> {
         self.tx.subscribe()
     }
@@ -146,7 +150,7 @@ bus.publish(AppEvent::UserLoggedIn { user_id: 42 });
 ## Broadcast vs Watch
 
 ```rust
-// broadcast: subscribers get ALL messages
+// broadcast: current, non-lagging subscribers can observe each message
 // Good for: events, logs, notifications
 let (tx, _) = broadcast::channel::<Event>(100);
 
